@@ -1,0 +1,9 @@
+{
+  "name": "nexusflow-simulator",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "start": "node simulator.js",
+    "dev": "node --watch simulator.js"
+  }
+}
