@@ -1,14 +1,14 @@
 const express = require('express');
 const cors = require('cors');
-const dotenv = require('dotenv');
-
-dotenv.config();
+const graphsRouter = require('./routes/graphs');
+const config = require('./config/env');
 
 const app = express();
-const port = process.env.PORT || 4000;
+const port = config.port;
 
 app.use(cors());
 app.use(express.json());
+app.use('/api/graphs', graphsRouter);
 
 app.get('/health', (req, res) => {
   res.json({
