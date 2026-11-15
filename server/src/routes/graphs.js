@@ -27,11 +27,11 @@ router.post('/compile', (req, res) => {
   }
 });
 
-router.post('/execute', (req, res) => {
+router.post('/execute', async (req, res) => {
   try {
     const { graph, telemetry } = req.body || {};
     const engine = createRuleEngine(graph || {});
-    const result = engine.processTelemetry(telemetry || {});
+    const result = await engine.processTelemetry(telemetry || {});
 
     res.json({ ok: true, result, compiled: engine.compiled });
   } catch (error) {

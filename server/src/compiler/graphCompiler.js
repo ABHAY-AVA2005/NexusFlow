@@ -1,5 +1,10 @@
+const { merge } = require('rxjs');
+const { getNodeOperator } = require('./nodeOperators');
+
+const NODE_TYPES = new Set(['source', 'math', 'filter', 'action']);
+
 function validateGraph(graph) {
-  if (!graph || typeof graph !== 'object') {
+  if (!graph || typeof graph !== 'object' || Array.isArray(graph)) {
     throw new Error('Graph payload must be an object.');
   }
 
@@ -14,7 +19,7 @@ function validateGraph(graph) {
   const nodeIds = new Set();
 
   for (const node of graph.nodes) {
-    if (!node || typeof node !== 'object') {
+    if (!node || typeof node !== 'object' || Array.isArray(node)) {
       throw new Error('Every node must be an object.');
     }
 
@@ -26,11 +31,11 @@ function validateGraph(graph) {
       throw new Error(`Duplicate node id detected: ${node.id}`);
     }
 
-    if (!node.type || typeof node.type !== 'string') {
-      throw new Error(`Node ${node.id} requires a string type.`);
+    if (!NODE_TYPES.has(node.type)) {
+      throw new Error(`Node ${node.id} has unsupported type: ${node.type}`);
     }
 
-    if (!node.config || typeof node.config !== 'object') {
+    if (!node.config || typeof node.config !== 'object' || Array.isArray(node.config)) {
       throw new Error(`Node ${node.id} requires a config object.`);
     }
 
@@ -38,7 +43,7 @@ function validateGraph(graph) {
   }
 
   for (const edge of graph.edges) {
-    if (!edge || typeof edge !== 'object') {
+    if (!edge || typeof edge !== 'object' || Array.isArray(edge)) {
       throw new Error('Every edge must be an object.');
     }
 
@@ -75,7 +80,7 @@ function topologicalSort(graph) {
 
   for (const edge of graph.edges) {
     adjacency.get(edge.source).push(edge.target);
-    indegree.set(edge.target, (indegree.get(edge.target) || 0) + 1);
+    indegree.set(edge.target, indegree.get(edge.target) + 1);
   }
 
   const queue = [];
@@ -86,11 +91,11 @@ function topologicalSort(graph) {
   }
 
   const order = [];
-  while (queue.length) {
-    const current = queue.shift();
+  for (let cursor = 0; cursor < queue.length; cursor += 1) {
+    const current = queue[cursor];
     order.push(current);
 
-    for (const nextNode of adjacency.get(current) || []) {
+    for (const nextNode of adjacency.get(current)) {
       indegree.set(nextNode, indegree.get(nextNode) - 1);
       if (indegree.get(nextNode) === 0) {
         queue.push(nextNode);
@@ -111,7 +116,7 @@ function compileGraph(graph) {
   const orderedNodes = topologicalSort(graph);
   const lookup = new Map(graph.nodes.map((node) => [node.id, node]));
 
-  const compiled = {
+  return {
     id: graph.id || 'graph-default',
     nodeCount: graph.nodes.length,
     edgeCount: graph.edges.length,
@@ -122,12 +127,54 @@ function compileGraph(graph) {
       config: lookup.get(nodeId).config,
     })),
   };
+}
 
-  return compiled;
+function compileGraphToStream(graph, telemetry$) {
+  if (!telemetry$ || typeof telemetry$.pipe !== 'function') {
+    throw new Error('Telemetry input must be an RxJS Observable.');
+  }
+
+  const compiled = compileGraph(graph);
+  const incoming = new Map(compiled.nodes.map((node) => [node.id, []]));
+  const outgoing = new Map(compiled.nodes.map((node) => [node.id, []]));
+
+  for (const edge of graph.edges) {
+    incoming.get(edge.target).push(edge.source);
+    outgoing.get(edge.source).push(edge.target);
+  }
+
+  const streams = new Map();
+
+  for (const node of compiled.nodes) {
+    const sources = incoming.get(node.id);
+
+    if (node.type === 'source') {
+      if (sources.length > 0) {
+        throw new Error(`Source node ${node.id} cannot have incoming edges.`);
+      }
+      streams.set(node.id, telemetry$.pipe(getNodeOperator(node)));
+      continue;
+    }
+
+    if (sources.length === 0) {
+      throw new Error(`Non-source node ${node.id} must have an incoming edge.`);
+    }
+
+    const parents = sources.map((sourceId) => streams.get(sourceId));
+    const input$ = parents.length === 1 ? parents[0] : merge(...parents);
+    streams.set(node.id, input$.pipe(getNodeOperator(node)));
+  }
+
+  const outputStreams = compiled.nodes
+    .filter((node) => outgoing.get(node.id).length === 0)
+    .map((node) => streams.get(node.id));
+
+  return outputStreams.length === 1 ? outputStreams[0] : merge(...outputStreams);
 }
 
 module.exports = {
   validateGraph,
   topologicalSort,
   compileGraph,
+  compileGraphToStream,
 };
