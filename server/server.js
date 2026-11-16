@@ -8,6 +8,7 @@
 const express = require('express');
 const cors = require('cors');
 const config = require('./src/config/env');
+const connectDB = require('./src/config/db');
 const healthRoutes = require('./src/routes/health.routes');
 const { notFoundHandler, errorHandler } = require('./src/middleware/errorHandler');
 
@@ -61,30 +62,52 @@ app.use(errorHandler);
 // Start Server
 // ==========================================
 
-const server = app.listen(config.port, () => {
-  console.log('==================================================');
-  console.log(` NexusFlow Backend Server Started Successfully`);
-  console.log(` Environment:  ${config.nodeEnv}`);
-  console.log(` Port:         ${config.port}`);
-  console.log(` Health URL:   http://localhost:${config.port}/health`);
-  console.log('==================================================');
-});
+let server;
+
+const startServer = async () => {
+  try {
+    // Connect to MongoDB before starting the HTTP server
+    await connectDB();
+
+    server = app.listen(config.port, () => {
+      console.log('==================================================');
+      console.log(` NexusFlow Backend Server Started Successfully`);
+      console.log(` Environment:  ${config.nodeEnv}`);
+      console.log(` Port:         ${config.port}`);
+      console.log(` Health URL:   http://localhost:${config.port}/health`);
+      console.log('==================================================');
+    });
+  } catch (error) {
+    console.error(`Failed to start server: ${error.message}`);
+    process.exit(1);
+  }
+};
+
+startServer();
 
 // Handle graceful termination
 process.on('SIGINT', () => {
   console.log('\nGracefully shutting down server (SIGINT)...');
-  server.close(() => {
-    console.log('HTTP server closed.');
+  if (server) {
+    server.close(() => {
+      console.log('HTTP server closed.');
+      process.exit(0);
+    });
+  } else {
     process.exit(0);
-  });
+  }
 });
 
 process.on('SIGTERM', () => {
   console.log('\nGracefully shutting down server (SIGTERM)...');
-  server.close(() => {
-    console.log('HTTP server closed.');
+  if (server) {
+    server.close(() => {
+      console.log('HTTP server closed.');
+      process.exit(0);
+    });
+  } else {
     process.exit(0);
-  });
+  }
 });
 
 module.exports = app;
