@@ -19,3 +19,9 @@
 - **Implemented:** Developed high-throughput load testing script (`simulator/loadTest.js`) capable of pushing up to 5,000 writes/second in batched HTTP payloads for the Mid-Project Review ingestion audit.
   **Reason/tools:** Required to benchmark MongoDB Time-Series performance.
 - **Verified:** Added unit tests (`server/test/simulator.test.js`) verifying telemetry ranges, anomaly triggers, and sensor coverage; all 3 tests passed.
+
+## 2026-11-17
+
+- **Implemented:** Added CLI argument parsing (`--interval`, `--anomaly`, `--profile`, `--sensors`) and preset industrial profiles (`normal`, `stress`, `boiler_focus`) to `simulator/simulator.js`.
+  **Reason/tools:** Enables the QA and ingestion teams to simulate custom hardware scenarios and stress-test rule execution without hardcoding script constants.
+- **Verified:** Ran simulator with `--profile stress` and verified high anomaly emission rates and rapid telemetry dispatch.
