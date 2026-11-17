@@ -9,14 +9,14 @@
 const http = require('http');
 
 const INTERVAL_MS = parseInt(process.env.SIM_INTERVAL_MS || process.argv[2] || '1000', 10);
-const TARGET_URL = process.env.INGEST_URL || 'http://localhost:5000/api/telemetry';
+const TARGET_URL = process.env.INGEST_URL || 'http://localhost:4000/api/telemetry';
 const ANOMALY_CHANCE = parseFloat(process.env.ANOMALY_CHANCE || '0.15'); // 15% anomaly rate
 
 const SENSORS = [
-  { id: 'turbine-01', location: 'Section A - Power Gen', tempBase: 72, pressBase: 30, vibBase: 2.2 },
-  { id: 'boiler-04', location: 'Section B - Thermal', tempBase: 80, pressBase: 45, vibBase: 1.8 },
-  { id: 'pump-12', location: 'Section C - Coolant', tempBase: 65, pressBase: 28, vibBase: 3.5 },
-  { id: 'conveyor-09', location: 'Section D - Assembly', tempBase: 55, pressBase: 15, vibBase: 4.1 },
+  { id: 'turbine-01', type: 'turbine', location: 'Section A - Power Gen', tempBase: 72, pressBase: 30, vibBase: 2.2 },
+  { id: 'boiler-04', type: 'boiler', location: 'Section B - Thermal', tempBase: 80, pressBase: 45, vibBase: 1.8 },
+  { id: 'pump-12', type: 'pump', location: 'Section C - Coolant', tempBase: 65, pressBase: 28, vibBase: 3.5 },
+  { id: 'conveyor-09', type: 'conveyor', location: 'Section D - Assembly', tempBase: 55, pressBase: 15, vibBase: 4.1 },
 ];
 
 function randomValue(min, max, decimals = 2) {
@@ -46,6 +46,8 @@ function generateTelemetry(sensor) {
 
   return {
     timestamp: new Date().toISOString(),
+    deviceId: sensor.id,
+    deviceType: sensor.type,
     sensorId: sensor.id,
     sensor: sensor.id,
     location: sensor.location,
@@ -60,33 +62,46 @@ function generateTelemetry(sensor) {
 
 // Optional HTTP post to Express ingestion API
 function postTelemetry(data) {
+  let parsed;
   try {
-    const parsed = new URL(TARGET_URL);
-    const postData = JSON.stringify(data);
-
-    const req = http.request({
-      hostname: parsed.hostname,
-      port: parsed.port || 5000,
-      path: parsed.pathname,
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(postData),
-      },
-      timeout: 1000,
-    }, (res) => {
-      // response received
-    });
-
-    req.on('error', () => {
-      // Server might not be running yet in standalone testing
-    });
-
-    req.write(postData);
-    req.end();
+    parsed = new URL(TARGET_URL);
   } catch (err) {
-    // URL parse or network error
+    console.error(`Invalid telemetry URL "${TARGET_URL}": ${err.message}`);
+    return;
   }
+
+  if (parsed.protocol !== 'http:') {
+    console.error(`Unsupported telemetry URL protocol: ${parsed.protocol}`);
+    return;
+  }
+
+  const postData = JSON.stringify(data);
+  const req = http.request({
+    hostname: parsed.hostname,
+    port: parsed.port || 80,
+    path: `${parsed.pathname}${parsed.search}`,
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Content-Length': Buffer.byteLength(postData),
+    },
+    timeout: 1000,
+  }, (res) => {
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      console.error(`Telemetry ingestion failed with HTTP ${res.statusCode}`);
+    }
+    res.resume();
+  });
+
+  req.on('timeout', () => {
+    req.destroy(new Error('Telemetry request timed out.'));
+  });
+  req.on('error', (err) => {
+    console.error(`Telemetry request failed: ${err.message}`);
+  });
+
+  req.write(postData);
+  req.end();
 }
 
 function startSimulator() {

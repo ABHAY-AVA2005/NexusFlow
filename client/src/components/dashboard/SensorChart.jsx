@@ -38,7 +38,8 @@ export default function SensorChart({ data }) {
           <LineChart data={data}>
             <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
             <XAxis dataKey="time" stroke="#64748b" tick={{ fontSize: 11 }} />
-            <YAxis stroke="#64748b" tick={{ fontSize: 11 }} domain={[40, 110]} />
+            <YAxis yAxisId="temperature" stroke="#64748b" tick={{ fontSize: 11 }} domain={[40, 110]} />
+            <YAxis yAxisId="vibration" orientation="right" stroke="#64748b" tick={{ fontSize: 11 }} domain={[0, 10]} />
             <Tooltip
               contentStyle={{
                 backgroundColor: '#1b263b',
@@ -48,10 +49,11 @@ export default function SensorChart({ data }) {
                 fontSize: '12px',
               }}
             />
-            <ReferenceLine y={85} stroke="#f43f5e" strokeDasharray="4 4" label={{ value: 'MAX 85°C', fill: '#f43f5e', fontSize: 10 }} />
+            <ReferenceLine yAxisId="temperature" y={85} stroke="#f43f5e" strokeDasharray="4 4" label={{ value: 'MAX 85°C', fill: '#f43f5e', fontSize: 10 }} />
             <Line
               type="monotone"
               dataKey="temperature"
+              yAxisId="temperature"
               stroke="#38bdf8"
               strokeWidth={2}
               dot={{ r: 3, fill: '#38bdf8' }}
@@ -60,6 +62,7 @@ export default function SensorChart({ data }) {
             <Line
               type="monotone"
               dataKey="vibration"
+              yAxisId="vibration"
               stroke="#34d399"
               strokeWidth={1.5}
               dot={false}

@@ -10,3 +10,7 @@ coverage/
 .DS_Store
 Thumbs.db
 *.log
+server/node_modules/
+server/.env
+server/.env.*
+!server/.env.example

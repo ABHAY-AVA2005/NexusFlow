@@ -9,7 +9,7 @@
 const http = require('http');
 const { generateTelemetry, SENSORS } = require('./simulator');
 
-const TARGET_URL = process.env.INGEST_BULK_URL || 'http://localhost:5000/api/telemetry/bulk';
+const TARGET_URL = process.env.INGEST_BULK_URL || 'http://localhost:4000/api/telemetry/bulk';
 const DURATION_SECONDS = parseInt(process.env.LOAD_DURATION_SEC || '10', 10);
 const TARGET_WRITES_PER_SEC = parseInt(process.env.TARGET_RPS || '5000', 10);
 const BATCH_SIZE = 250; // 20 requests per second with 250 items = 5000 records/sec
@@ -86,7 +86,7 @@ async function runBenchmark() {
 
 function printSummary(startTime, totalSent, totalSuccessful, totalFailed) {
   const durationSec = ((Date.now() - startTime) / 1000).toFixed(2);
-  const actualRps = (totalSent / durationSec).toFixed(0);
+  const actualRps = (totalSuccessful / durationSec).toFixed(0);
 
   console.log('\n========================================================');
   console.log('📊 Benchmark Results Summary');
@@ -95,7 +95,7 @@ function printSummary(startTime, totalSent, totalSuccessful, totalFailed) {
   console.log(`Successfully Ingested   : ${totalSuccessful}`);
   console.log(`Failed / Dropped        : ${totalFailed}`);
   console.log(`Execution Duration      : ${durationSec}s`);
-  console.log(`Throughput Rate         : ${actualRps} writes/second`);
+  console.log(`Successful Throughput   : ${actualRps} writes/second`);
   console.log('Audit Status            : ' + (actualRps >= 4500 ? '✅ PASSED (Target Met)' : '⚠️ BELOW BENCHMARK'));
   console.log('========================================================\n');
 }

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
  * Custom WebSocket hook for streaming real-time IoT telemetry & alerts.
  * Fallbacks to internal simulated stream if backend WebSocket is offline.
  */
-export function useTelemetrySocket(url = 'ws://localhost:5000') {
+export function useTelemetrySocket(url = 'ws://localhost:8080') {
   const [telemetryData, setTelemetryData] = useState([]);
   const [latestMetric, setLatestMetric] = useState(null);
   const [alerts, setAlerts] = useState([]);
@@ -74,8 +74,10 @@ export function useTelemetrySocket(url = 'ws://localhost:5000') {
   }, [url]);
 
   function handleIncomingTelemetry(item) {
+    const sensorId = item.sensorId || item.deviceId || item.metadata?.deviceId;
     const formatted = {
       ...item,
+      sensorId,
       time: item.timestamp ? new Date(item.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString(),
     };
 
