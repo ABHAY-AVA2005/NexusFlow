@@ -4,6 +4,7 @@ const { of, toArray } = require('rxjs');
 const { lastValueFrom } = require('rxjs');
 const { compileGraph, compileGraphToStream } = require('../src/compiler/graphCompiler');
 const { createRuleEngine } = require('../src/engine/ruleEngine');
+const app = require('../src/index');
 
 const thresholdGraph = {
   nodes: [
@@ -52,6 +53,47 @@ test('executes a graph as an RxJS stream and filters telemetry by graph path', a
     { temperature: 82, alert: false },
     { temperature: 90, alert: true, message: 'Threshold exceeded' },
   ]);
+});
+
+test('accepts array-based telemetry sources and exposes the express health endpoint', async () => {
+  const results = await lastValueFrom(
+    compileGraphToStream(thresholdGraph, [{ temperature: 70 }, { temperature: 88 }, { temperature: 95 }]).pipe(toArray())
+  );
+
+  assert.deepEqual(results, [
+    { temperature: 88, alert: true, message: 'Threshold exceeded' },
+    { temperature: 95, alert: true, message: 'Threshold exceeded' },
+  ]);
+
+  const engine = createRuleEngine(thresholdGraph);
+  assert.deepEqual(
+    await engine.processTelemetry([{ temperature: 82 }, { temperature: 90 }]),
+    [
+      { temperature: 82, alert: false },
+      { temperature: 90, alert: true, message: 'Threshold exceeded' },
+    ]
+  );
+
+  const healthResponse = await new Promise((resolve, reject) => {
+    const server = app.listen(0, () => {
+      const { port } = server.address();
+      const http = require('node:http');
+      http.get(`http://127.0.0.1:${port}/health`, (response) => {
+        let body = '';
+        response.on('data', (chunk) => { body += chunk; });
+        response.on('end', () => {
+          server.close();
+          resolve({ statusCode: response.statusCode, body });
+        });
+      }).on('error', (error) => {
+        server.close();
+        reject(error);
+      });
+    });
+  });
+
+  assert.equal(healthResponse.statusCode, 200);
+  assert.match(healthResponse.body, /"status":"ok"/);
 });
 
 test('exposes single-record processing through the rule engine', async () => {

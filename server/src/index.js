@@ -22,6 +22,10 @@ app.get('/', (req, res) => {
   res.json({ message: 'NexusFlow server is running.' });
 });
 
-app.listen(port, () => {
-  console.log(`NexusFlow server listening on http://localhost:${port}`);
-});
+if (require.main === module) {
+  app.listen(port, () => {
+    console.log(`NexusFlow server listening on http://localhost:${port}`);
+  });
+}
+
+module.exports = app;

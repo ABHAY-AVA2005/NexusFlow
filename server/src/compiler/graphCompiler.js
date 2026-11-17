@@ -1,4 +1,4 @@
-const { merge } = require('rxjs');
+const { merge, from } = require('rxjs');
 const { getNodeOperator } = require('./nodeOperators');
 
 const NODE_TYPES = new Set(['source', 'math', 'filter', 'action']);
@@ -129,10 +129,24 @@ function compileGraph(graph) {
   };
 }
 
-function compileGraphToStream(graph, telemetry$) {
-  if (!telemetry$ || typeof telemetry$.pipe !== 'function') {
-    throw new Error('Telemetry input must be an RxJS Observable.');
+function normalizeTelemetryStream(telemetry$) {
+  if (!telemetry$) {
+    throw new Error('Telemetry input must be an RxJS Observable or iterable of records.');
   }
+
+  if (typeof telemetry$.pipe === 'function') {
+    return telemetry$;
+  }
+
+  if (Array.isArray(telemetry$) || typeof telemetry$[Symbol.iterator] === 'function') {
+    return from(telemetry$);
+  }
+
+  throw new Error('Telemetry input must be an RxJS Observable or iterable of records.');
+}
+
+function compileGraphToStream(graph, telemetry$) {
+  const telemetryStream = normalizeTelemetryStream(telemetry$);
 
   const compiled = compileGraph(graph);
   const incoming = new Map(compiled.nodes.map((node) => [node.id, []]));
@@ -152,7 +166,7 @@ function compileGraphToStream(graph, telemetry$) {
       if (sources.length > 0) {
         throw new Error(`Source node ${node.id} cannot have incoming edges.`);
       }
-      streams.set(node.id, telemetry$.pipe(getNodeOperator(node)));
+      streams.set(node.id, telemetryStream.pipe(getNodeOperator(node)));
       continue;
     }
 

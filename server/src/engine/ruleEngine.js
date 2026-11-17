@@ -9,8 +9,15 @@ function createRuleEngine(graph) {
     return compileGraphToStream(graph, telemetry$);
   }
 
-  async function processTelemetry(record) {
-    return firstValueFrom(processStream(of(record)).pipe(defaultIfEmpty(null)));
+  async function processTelemetry(recordOrRecords) {
+    if (Array.isArray(recordOrRecords)) {
+      const results = await Promise.all(
+        recordOrRecords.map((record) => processTelemetry(record))
+      );
+      return results.filter((result) => result !== null && result !== undefined);
+    }
+
+    return firstValueFrom(processStream(of(recordOrRecords)).pipe(defaultIfEmpty(null)));
   }
 
   return {
