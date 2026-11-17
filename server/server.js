@@ -1,6 +1,6 @@
 /**
  * NexusFlow - Backend Server Entry Point
- * 
+ *
  * This file initializes the Express application, sets up middleware,
  * mounts API routes, and starts the HTTP server.
  */
@@ -10,6 +10,7 @@ const cors = require('cors');
 const config = require('./src/config/env');
 const connectDB = require('./src/config/db');
 const healthRoutes = require('./src/routes/health.routes');
+const telemetryRoutes = require('./src/routes/telemetry.routes');
 const { notFoundHandler, errorHandler } = require('./src/middleware/errorHandler');
 
 // Initialize Express application
@@ -47,6 +48,9 @@ app.get('/', (req, res) => {
 
 // Health check endpoint (GET /health)
 app.use('/health', healthRoutes);
+
+// Telemetry API endpoint (POST /api/telemetry)
+app.use('/api/telemetry', telemetryRoutes);
 
 // ==========================================
 // Error Handling Middleware
