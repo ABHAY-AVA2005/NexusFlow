@@ -2,16 +2,19 @@
  * NexusFlow - Backend Server Entry Point
  *
  * This file initializes the Express application, sets up middleware,
- * mounts API routes, and starts the HTTP server.
+ * mounts API routes, attaches the Socket.IO real-time server,
+ * and starts the HTTP server.
  */
 
 const express = require('express');
 const cors = require('cors');
+const http = require('http');
 const config = require('./src/config/env');
 const connectDB = require('./src/config/db');
 const healthRoutes = require('./src/routes/health.routes');
 const telemetryRoutes = require('./src/routes/telemetry.routes');
 const { notFoundHandler, errorHandler } = require('./src/middleware/errorHandler');
+const { initializeSocket } = require('./src/services/socketManager');
 
 // Initialize Express application
 const app = express();
@@ -67,18 +70,28 @@ app.use(errorHandler);
 // ==========================================
 
 let server;
+let io;
+let isShuttingDown = false;
 
 const startServer = async () => {
   try {
     // Connect to MongoDB before starting the HTTP server
     await connectDB();
 
-    server = app.listen(config.port, () => {
+    // Create an explicit HTTP server so both Express and Socket.IO
+    // can share the same port and server instance.
+    server = http.createServer(app);
+
+    // Attach Socket.IO to the HTTP server
+    io = initializeSocket(server);
+
+    server.listen(config.port, () => {
       console.log('==================================================');
       console.log(` NexusFlow Backend Server Started Successfully`);
       console.log(` Environment:  ${config.nodeEnv}`);
       console.log(` Port:         ${config.port}`);
       console.log(` Health URL:   http://localhost:${config.port}/health`);
+      console.log(` Socket.IO:    http://localhost:${config.port}`);
       console.log('==================================================');
     });
   } catch (error) {
@@ -89,21 +102,31 @@ const startServer = async () => {
 
 startServer();
 
-// Handle graceful termination
-process.on('SIGINT', () => {
-  console.log('\nGracefully shutting down server (SIGINT)...');
-  if (server) {
-    server.close(() => {
-      console.log('HTTP server closed.');
-      process.exit(0);
-    });
-  } else {
-    process.exit(0);
-  }
-});
+// ==========================================
+// Graceful Shutdown
+// ==========================================
 
-process.on('SIGTERM', () => {
-  console.log('\nGracefully shutting down server (SIGTERM)...');
+/**
+ * Performs an orderly shutdown:
+ *   1. Prevents duplicate execution via the isShuttingDown flag.
+ *   2. Closes all Socket.IO connections first (io.close()).
+ *   3. Closes the HTTP server so no new requests are accepted.
+ *   4. Exits the process with code 0.
+ */
+const gracefulShutdown = (signal) => {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+
+  console.log(`\nGracefully shutting down server (${signal})...`);
+
+  // Step 1: Close Socket.IO connections
+  if (io) {
+    io.close(() => {
+      console.log('Socket.IO server closed.');
+    });
+  }
+
+  // Step 2: Close the HTTP server
   if (server) {
     server.close(() => {
       console.log('HTTP server closed.');
@@ -112,6 +135,9 @@ process.on('SIGTERM', () => {
   } else {
     process.exit(0);
   }
-});
+};
+
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 
 module.exports = app;
