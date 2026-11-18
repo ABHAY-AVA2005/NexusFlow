@@ -1,53 +1,50 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 /**
- * Enhanced WebSocket hook for real-time IoT telemetry streaming.
- * Features:
- * - Exponential backoff auto-reconnection (1s, 2s, 4s, up to 10s max)
- * - Detailed connection states: 'CONNECTED', 'CONNECTING', 'RECONNECTING', 'SIMULATED'
- * - Stream Pause / Resume controls
- * - Manual reconnect trigger
+ * Resilient WebSocket & Simulation Hook for NexusFlow Telemetry.
+ * Ensures the live stream ticks and updates every second without getting stuck.
  */
 export function useTelemetrySocket(url = 'ws://localhost:5000') {
   const [telemetryData, setTelemetryData] = useState([]);
   const [latestMetric, setLatestMetric] = useState(null);
   const [alerts, setAlerts] = useState([]);
-  const [connectionStatus, setConnectionStatus] = useState('CONNECTING');
-  const [reconnectAttempts, setReconnectAttempts] = useState(0);
+  const [connectionStatus, setConnectionStatus] = useState('SIMULATED');
   const [isPaused, setIsPaused] = useState(false);
   const [sensorSummary, setSensorSummary] = useState({});
 
   const wsRef = useRef(null);
-  const reconnectTimeoutRef = useRef(null);
-  const fallbackIntervalRef = useRef(null);
   const isPausedRef = useRef(isPaused);
+  const reconnectAttemptsRef = useRef(0);
+  const reconnectTimerRef = useRef(null);
 
-  // Keep ref in sync for event callbacks
+  // Sync ref with pause state
   useEffect(() => {
     isPausedRef.current = isPaused;
   }, [isPaused]);
 
-  const handleIncomingTelemetry = useCallback((item) => {
+  // Central ingestion function for both WebSocket and Simulated stream
+  const ingest = (item) => {
     if (isPausedRef.current) return;
 
     const formatted = {
       ...item,
-      time: item.timestamp ? new Date(item.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString(),
+      time: item.timestamp
+        ? new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+        : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
     };
 
     setLatestMetric(formatted);
 
-    // Sliding window of latest 25 readings
-    setTelemetryData((prev) => {
-      const next = [...prev, formatted];
-      return next.slice(-25);
-    });
+    // Keep sliding window of latest 20 points for chart
+    setTelemetryData((prev) => [...prev.slice(-19), formatted]);
 
+    // Update sensor card summary
     setSensorSummary((prev) => ({
       ...prev,
       [formatted.sensorId]: formatted,
     }));
 
+    // Trigger alert if anomaly or high threshold
     if (formatted.anomaly || formatted.temperature > 85 || formatted.vibration > 5.5) {
       setAlerts((prev) => [
         {
@@ -60,112 +57,118 @@ export function useTelemetrySocket(url = 'ws://localhost:5000') {
         ...prev.slice(0, 19),
       ]);
     }
-  }, []);
+  };
 
-  const connect = useCallback(() => {
-    if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) {
-      return;
-    }
-
-    try {
-      setConnectionStatus(reconnectAttempts > 0 ? 'RECONNECTING' : 'CONNECTING');
-      const ws = new WebSocket(url);
-      wsRef.current = ws;
-
-      ws.onopen = () => {
-        setConnectionStatus('CONNECTED');
-        setReconnectAttempts(0);
-        if (fallbackIntervalRef.current) {
-          clearInterval(fallbackIntervalRef.current);
-          fallbackIntervalRef.current = null;
-        }
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const payload = JSON.parse(event.data);
-          handleIncomingTelemetry(payload);
-        } catch (e) {
-          console.error('Invalid WS payload:', e);
-        }
-      };
-
-      ws.onclose = () => {
-        setConnectionStatus('SIMULATED');
-        scheduleReconnect();
-      };
-
-      ws.onerror = () => {
-        ws.close();
-      };
-    } catch {
-      setConnectionStatus('SIMULATED');
-      scheduleReconnect();
-    }
-  }, [url, reconnectAttempts, handleIncomingTelemetry]);
-
-  // Exponential backoff: min 1.5s, doubles up to max 12s
-  const scheduleReconnect = useCallback(() => {
-    if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
-
-    const delay = Math.min(1500 * Math.pow(1.8, reconnectAttempts), 12000);
-    setReconnectAttempts((prev) => prev + 1);
-
-    reconnectTimeoutRef.current = setTimeout(() => {
-      connect();
-    }, delay);
-  }, [reconnectAttempts, connect]);
-
-  // Start connection and maintain fallback simulation when backend is offline
+  // 1. WebSocket connection manager
   useEffect(() => {
-    connect();
+    let isCancelled = false;
 
-    // Start fallback simulated telemetry stream
-    fallbackIntervalRef.current = setInterval(() => {
-      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-        const sensors = ['turbine-01', 'boiler-04', 'pump-12', 'conveyor-09'];
-        const chosen = sensors[Math.floor(Math.random() * sensors.length)];
-        const isAnomaly = Math.random() < 0.12;
+    function tryConnect() {
+      if (isCancelled) return;
+      try {
+        const ws = new WebSocket(url);
+        wsRef.current = ws;
 
-        const mockItem = {
-          timestamp: new Date().toISOString(),
-          sensorId: chosen,
-          temperature: Number((Math.random() * (isAnomaly ? 20 : 10) + (isAnomaly ? 88 : 70)).toFixed(1)),
-          pressure: Number((Math.random() * 15 + 28).toFixed(1)),
-          vibration: Number((Math.random() * (isAnomaly ? 4 : 2) + (isAnomaly ? 5.5 : 1.8)).toFixed(2)),
-          rpm: Math.floor(Math.random() * 500 + 2800),
-          anomaly: isAnomaly,
-          status: isAnomaly ? 'CRITICAL' : 'NORMAL',
+        ws.onopen = () => {
+          if (isCancelled) return;
+          setConnectionStatus('CONNECTED');
+          reconnectAttemptsRef.current = 0;
         };
 
-        handleIncomingTelemetry(mockItem);
+        ws.onmessage = (event) => {
+          if (isCancelled) return;
+          try {
+            const data = JSON.parse(event.data);
+            ingest(data);
+          } catch {}
+        };
+
+        ws.onclose = () => {
+          if (isCancelled) return;
+          setConnectionStatus('SIMULATED');
+          scheduleRetry();
+        };
+
+        ws.onerror = () => {
+          if (ws) ws.close();
+        };
+      } catch {
+        setConnectionStatus('SIMULATED');
+        scheduleRetry();
       }
-    }, 1200);
+    }
+
+    function scheduleRetry() {
+      if (isCancelled) return;
+      reconnectAttemptsRef.current += 1;
+      const delay = Math.min(3000 * reconnectAttemptsRef.current, 15000);
+      reconnectTimerRef.current = setTimeout(tryConnect, delay);
+    }
+
+    tryConnect();
 
     return () => {
+      isCancelled = true;
       if (wsRef.current) wsRef.current.close();
-      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
-      if (fallbackIntervalRef.current) clearInterval(fallbackIntervalRef.current);
+      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
     };
-  }, [connect, handleIncomingTelemetry]);
+  }, [url]);
+
+  // 2. Stable simulation stream: emits every 1000ms whenever WebSocket is offline
+  useEffect(() => {
+    const SENSORS = [
+      { id: 'turbine-01', temp: 74, press: 30, vib: 2.2, rpm: 2950 },
+      { id: 'boiler-04', temp: 80, press: 45, vib: 1.8, rpm: 0 },
+      { id: 'pump-12', temp: 66, press: 28, vib: 3.4, rpm: 1750 },
+      { id: 'conveyor-09', temp: 58, press: 15, vib: 4.1, rpm: 850 },
+    ];
+
+    let index = 0;
+
+    const interval = setInterval(() => {
+      // If live WebSocket is connected, WebSocket handles the data
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        return;
+      }
+
+      const sensor = SENSORS[index % SENSORS.length];
+      index++;
+
+      const isAnomaly = Math.random() < 0.15;
+      const temp = isAnomaly
+        ? Number((Math.random() * 15 + 88).toFixed(1))
+        : Number((sensor.temp + (Math.random() * 6 - 3)).toFixed(1));
+      const vib = isAnomaly
+        ? Number((Math.random() * 3 + 5.6).toFixed(2))
+        : Number((sensor.vib + (Math.random() * 0.8 - 0.4)).toFixed(2));
+      const press = Number((sensor.press + (Math.random() * 4 - 2)).toFixed(1));
+      const rpm = sensor.rpm > 0 ? sensor.rpm + Math.floor(Math.random() * 60 - 30) : 0;
+
+      ingest({
+        sensorId: sensor.id,
+        temperature: temp,
+        pressure: press,
+        vibration: vib,
+        rpm: rpm,
+        anomaly: isAnomaly,
+        status: isAnomaly ? 'CRITICAL' : temp > 82 ? 'WARNING' : 'OPTIMAL',
+        timestamp: new Date().toISOString(),
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const togglePause = () => setIsPaused((prev) => !prev);
   const clearAlerts = () => setAlerts([]);
-  const manualReconnect = () => {
-    setReconnectAttempts(0);
-    connect();
-  };
 
   return {
     telemetryData,
     latestMetric,
     alerts,
     connectionStatus,
-    isConnected: connectionStatus === 'CONNECTED',
-    reconnectAttempts,
     isPaused,
     togglePause,
-    manualReconnect,
     sensorSummary,
     clearAlerts,
   };
