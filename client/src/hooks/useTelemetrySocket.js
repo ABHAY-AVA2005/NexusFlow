@@ -1,28 +1,84 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 /**
- * Custom WebSocket hook for streaming real-time IoT telemetry & alerts.
- * Fallbacks to internal simulated stream if backend WebSocket is offline.
+ * Enhanced WebSocket hook for real-time IoT telemetry streaming.
+ * Features:
+ * - Exponential backoff auto-reconnection (1s, 2s, 4s, up to 10s max)
+ * - Detailed connection states: 'CONNECTED', 'CONNECTING', 'RECONNECTING', 'SIMULATED'
+ * - Stream Pause / Resume controls
+ * - Manual reconnect trigger
  */
 export function useTelemetrySocket(url = 'ws://localhost:5000') {
   const [telemetryData, setTelemetryData] = useState([]);
   const [latestMetric, setLatestMetric] = useState(null);
   const [alerts, setAlerts] = useState([]);
-  const [isConnected, setIsConnected] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState('CONNECTING');
+  const [reconnectAttempts, setReconnectAttempts] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
   const [sensorSummary, setSensorSummary] = useState({});
-  const wsRef = useRef(null);
 
+  const wsRef = useRef(null);
+  const reconnectTimeoutRef = useRef(null);
+  const fallbackIntervalRef = useRef(null);
+  const isPausedRef = useRef(isPaused);
+
+  // Keep ref in sync for event callbacks
   useEffect(() => {
-    let ws;
-    let fallbackInterval;
+    isPausedRef.current = isPaused;
+  }, [isPaused]);
+
+  const handleIncomingTelemetry = useCallback((item) => {
+    if (isPausedRef.current) return;
+
+    const formatted = {
+      ...item,
+      time: item.timestamp ? new Date(item.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString(),
+    };
+
+    setLatestMetric(formatted);
+
+    // Sliding window of latest 25 readings
+    setTelemetryData((prev) => {
+      const next = [...prev, formatted];
+      return next.slice(-25);
+    });
+
+    setSensorSummary((prev) => ({
+      ...prev,
+      [formatted.sensorId]: formatted,
+    }));
+
+    if (formatted.anomaly || formatted.temperature > 85 || formatted.vibration > 5.5) {
+      setAlerts((prev) => [
+        {
+          id: Date.now() + Math.random(),
+          timestamp: formatted.time,
+          sensorId: formatted.sensorId,
+          message: `Threshold breached on ${formatted.sensorId}: Temp ${formatted.temperature}°C, Vib ${formatted.vibration}mm/s`,
+          severity: 'HIGH',
+        },
+        ...prev.slice(0, 19),
+      ]);
+    }
+  }, []);
+
+  const connect = useCallback(() => {
+    if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) {
+      return;
+    }
 
     try {
-      ws = new WebSocket(url);
+      setConnectionStatus(reconnectAttempts > 0 ? 'RECONNECTING' : 'CONNECTING');
+      const ws = new WebSocket(url);
       wsRef.current = ws;
 
       ws.onopen = () => {
-        setIsConnected(true);
-        console.log('⚡ Connected to NexusFlow Telemetry WebSocket');
+        setConnectionStatus('CONNECTED');
+        setReconnectAttempts(0);
+        if (fallbackIntervalRef.current) {
+          clearInterval(fallbackIntervalRef.current);
+          fallbackIntervalRef.current = null;
+        }
       };
 
       ws.onmessage = (event) => {
@@ -34,26 +90,45 @@ export function useTelemetrySocket(url = 'ws://localhost:5000') {
         }
       };
 
-      ws.onerror = () => {
-        setIsConnected(false);
+      ws.onclose = () => {
+        setConnectionStatus('SIMULATED');
+        scheduleReconnect();
       };
 
-      ws.onclose = () => {
-        setIsConnected(false);
+      ws.onerror = () => {
+        ws.close();
       };
     } catch {
-      setIsConnected(false);
+      setConnectionStatus('SIMULATED');
+      scheduleReconnect();
     }
+  }, [url, reconnectAttempts, handleIncomingTelemetry]);
 
-    // Local simulated stream fallback when WS backend is not yet started
-    fallbackInterval = setInterval(() => {
+  // Exponential backoff: min 1.5s, doubles up to max 12s
+  const scheduleReconnect = useCallback(() => {
+    if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+
+    const delay = Math.min(1500 * Math.pow(1.8, reconnectAttempts), 12000);
+    setReconnectAttempts((prev) => prev + 1);
+
+    reconnectTimeoutRef.current = setTimeout(() => {
+      connect();
+    }, delay);
+  }, [reconnectAttempts, connect]);
+
+  // Start connection and maintain fallback simulation when backend is offline
+  useEffect(() => {
+    connect();
+
+    // Start fallback simulated telemetry stream
+    fallbackIntervalRef.current = setInterval(() => {
       if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
         const sensors = ['turbine-01', 'boiler-04', 'pump-12', 'conveyor-09'];
         const chosen = sensors[Math.floor(Math.random() * sensors.length)];
         const isAnomaly = Math.random() < 0.12;
 
         const mockItem = {
-          timestamp: new Date().toLocaleTimeString(),
+          timestamp: new Date().toISOString(),
           sensorId: chosen,
           temperature: Number((Math.random() * (isAnomaly ? 20 : 10) + (isAnomaly ? 88 : 70)).toFixed(1)),
           pressure: Number((Math.random() * 15 + 28).toFixed(1)),
@@ -68,53 +143,29 @@ export function useTelemetrySocket(url = 'ws://localhost:5000') {
     }, 1200);
 
     return () => {
-      if (ws) ws.close();
-      if (fallbackInterval) clearInterval(fallbackInterval);
+      if (wsRef.current) wsRef.current.close();
+      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+      if (fallbackIntervalRef.current) clearInterval(fallbackIntervalRef.current);
     };
-  }, [url]);
+  }, [connect, handleIncomingTelemetry]);
 
-  function handleIncomingTelemetry(item) {
-    const formatted = {
-      ...item,
-      time: item.timestamp ? new Date(item.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString(),
-    };
-
-    setLatestMetric(formatted);
-
-    // Keep sliding window of latest 25 readings
-    setTelemetryData((prev) => {
-      const next = [...prev, formatted];
-      return next.slice(-25);
-    });
-
-    // Update sensor state summary
-    setSensorSummary((prev) => ({
-      ...prev,
-      [formatted.sensorId]: formatted,
-    }));
-
-    // Trigger alert if anomaly flagged
-    if (formatted.anomaly || formatted.temperature > 85 || formatted.vibration > 5.5) {
-      setAlerts((prev) => [
-        {
-          id: Date.now(),
-          timestamp: formatted.time,
-          sensorId: formatted.sensorId,
-          message: `Threshold breached on ${formatted.sensorId}: Temp ${formatted.temperature}°C, Vib ${formatted.vibration}mm/s`,
-          severity: 'HIGH',
-        },
-        ...prev.slice(0, 19), // keep last 20 alerts
-      ]);
-    }
-  }
-
+  const togglePause = () => setIsPaused((prev) => !prev);
   const clearAlerts = () => setAlerts([]);
+  const manualReconnect = () => {
+    setReconnectAttempts(0);
+    connect();
+  };
 
   return {
     telemetryData,
     latestMetric,
     alerts,
-    isConnected,
+    connectionStatus,
+    isConnected: connectionStatus === 'CONNECTED',
+    reconnectAttempts,
+    isPaused,
+    togglePause,
+    manualReconnect,
     sensorSummary,
     clearAlerts,
   };

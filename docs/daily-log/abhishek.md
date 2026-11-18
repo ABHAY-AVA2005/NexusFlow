@@ -25,3 +25,11 @@
 - **Implemented:** Added CLI argument parsing (`--interval`, `--anomaly`, `--profile`, `--sensors`) and preset industrial profiles (`normal`, `stress`, `boiler_focus`) to `simulator/simulator.js`.
   **Reason/tools:** Enables the QA and ingestion teams to simulate custom hardware scenarios and stress-test rule execution without hardcoding script constants.
 - **Verified:** Ran simulator with `--profile stress` and verified high anomaly emission rates and rapid telemetry dispatch.
+
+## 2026-11-18
+
+- **Implemented:** Added exponential backoff auto-reconnection logic and connection state transitions (`CONNECTED`, `CONNECTING`, `RECONNECTING`, `SIMULATED`) in `useTelemetrySocket.js`.
+  **Reason/tools:** Prevents client crash and connection storms when the backend WebSocket restarts during rule graph hot-reloads.
+- **Implemented:** Added stream controls (Pause/Resume telemetry and manual reconnect trigger) to `TelemetryDashboard.jsx`.
+  **Reason/tools:** Allows QA evaluators to pause incoming data streams to inspect anomalous spikes and verify historical chart points.
+- **Verified:** Tested WebSocket disconnect simulation and verified automatic fallback and seamless reconnection resumption.
