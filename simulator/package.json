@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "start": "node simulator.js",
-    "dev": "node --watch simulator.js"
+    "dev": "node --watch simulator.js",
+    "load-test": "node loadTest.js"
   }
 }

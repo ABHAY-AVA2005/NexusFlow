@@ -45,6 +45,10 @@ flowchart LR
 5. Start the simulator:
    - `cd simulator && npm start`
 
+### Windows quick start
+
+After installing dependencies in `server` and `client`, ensure MongoDB is running and execute `run-nexusflow.bat` from the repository root. It opens separate command windows for the server, client, and telemetry simulator.
+
 ## Performance targets
 
 - 5,000 writes/sec ingestion audit
