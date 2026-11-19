@@ -33,3 +33,11 @@
 - **Implemented:** Added stream controls (Pause/Resume telemetry and manual reconnect trigger) to `TelemetryDashboard.jsx`.
   **Reason/tools:** Allows QA evaluators to pause incoming data streams to inspect anomalous spikes and verify historical chart points.
 - **Verified:** Tested WebSocket disconnect simulation and verified automatic fallback and seamless reconnection resumption.
+
+## 2026-11-19
+
+- **Implemented:** Added interactive metric toggles (Temperature, Vibration, Pressure) and gradient area charts with critical thresholds in `SensorChart.jsx`.
+  **Reason/tools:** Allows factory supervisors to isolate specific machine telemetry channels and analyze visual trends during high anomaly bursts.
+- **Implemented:** Added session peak temperature tracking and parameter threshold limits to `MetricsCard.jsx`.
+  **Reason/tools:** Provides instant visual feedback on historical maximum thermal stress encountered by each sensor node.
+- **Verified:** Tested real-time chart toggling and verified peak temperature persistence during simulated anomaly triggers.
