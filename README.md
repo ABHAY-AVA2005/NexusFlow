@@ -62,4 +62,4 @@ flowchart LR
 
 ## Project status
 
-This repository is bootstrapped with a minimal runnable structure for the client, server, and simulator so all contributors can begin working immediately.
+The visual rule builder, compiler, simulator, telemetry ingestion, WebSocket dashboard, and mock alerting pipeline are implemented. Run the server tests with `cd server && npm test` and build the client with `cd client && npm run build`.

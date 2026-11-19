@@ -1,6 +1,8 @@
 const express = require('express');
 const { compileGraph } = require('../compiler/graphCompiler');
 const { createRuleEngine } = require('../engine/ruleEngine');
+const { dispatchActionAlert } = require('../alerting/alertService');
+const { broadcastAlert } = require('../ws/telemetryServer');
 
 const router = express.Router();
 
@@ -33,7 +35,16 @@ router.post('/execute', async (req, res) => {
     const engine = createRuleEngine(graph || {});
     const result = await engine.processTelemetry(telemetry || {});
 
-    res.json({ ok: true, result, compiled: engine.compiled });
+    let alertDispatch = null;
+    if (result && result.alert) {
+      alertDispatch = await dispatchActionAlert({
+        message: result.message || 'Rule threshold exceeded',
+        telemetry: result,
+      });
+      broadcastAlert(alertDispatch.payload);
+    }
+
+    res.json({ ok: true, result, alertDispatch, compiled: engine.compiled });
   } catch (error) {
     res.status(400).json({ ok: false, message: error.message });
   }
