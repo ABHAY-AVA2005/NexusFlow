@@ -41,3 +41,9 @@
 - **Implemented:** Added session peak temperature tracking and parameter threshold limits to `MetricsCard.jsx`.
   **Reason/tools:** Provides instant visual feedback on historical maximum thermal stress encountered by each sensor node.
 - **Verified:** Tested real-time chart toggling and verified peak temperature persistence during simulated anomaly triggers.
+
+## 2026-11-20
+
+- **Implemented:** Expanded the QA automated test suite in `server/test/simulator.test.js` to 7 comprehensive test suites covering ISO timestamps, profile presets (`normal`, `stress`, `boiler_focus`), physical telemetry boundaries, and statistical anomaly frequency.
+  **Reason/tools:** Ensures telemetry generator output adheres strictly to the backend schema and data contracts ahead of the Mid-Project Review audit.
+- **Verified:** Ran full test runner with Node test engine; all 12 tests across compiler and simulator passed with 0 failures.
