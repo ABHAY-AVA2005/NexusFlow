@@ -3,7 +3,7 @@
 Maintained by **Abhishek** (Dashboard, Simulator & QA Engineer).
 
 ## Overview
-This module simulates high-frequency industrial IoT sensors on the factory floor (turbines, boilers, coolant pumps, conveyors) and streams mock telemetry with configurable anomaly conditions to the Express ingestion endpoints.
+This module generates randomized synthetic telemetry for factory-floor sensors (turbines, boilers, coolant pumps, and conveyors) and streams it to the Express ingestion endpoints. Sensor readings are generated in-process; no external dataset is required.
 
 ## Features
 - **Multi-Sensor Simulation:** Emits telemetry for multiple named machines with unique baselines.
@@ -12,18 +12,7 @@ This module simulates high-frequency industrial IoT sensors on the factory floor
 
 ## Usage
 
-### Kaggle dataset replay (continuous)
-```bash
-npm run dataset
-
-# Replay faster
-SIM_INTERVAL_MS=500 npm run dataset
-
-# Replay the existing random generator
-npm start
-```
-
-### 1. Run Telemetry Generator (Normal Mode)
+### 1. Run Randomized Telemetry Generator
 ```bash
 # Default (1000ms interval, 4 sensors)
 npm start

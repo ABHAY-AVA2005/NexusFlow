@@ -4,7 +4,6 @@
   "private": true,
   "scripts": {
     "start": "node simulator.js",
-    "dataset": "node datasetSimulator.js",
     "dev": "node --watch simulator.js",
     "load-test": "node loadTest.js"
   }
