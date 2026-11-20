@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 
 /**
  * Custom WebSocket hook for streaming real-time IoT telemetry & alerts.
- * Fallbacks to internal simulated stream if backend WebSocket is offline.
+ * The dashboard is driven only by the backend WebSocket when it is available.
  */
 export function useTelemetrySocket(url = 'ws://localhost:8080') {
   const [telemetryData, setTelemetryData] = useState([]);
@@ -14,8 +14,6 @@ export function useTelemetrySocket(url = 'ws://localhost:8080') {
 
   useEffect(() => {
     let ws;
-    let fallbackInterval;
-
     try {
       ws = new WebSocket(url);
       wsRef.current = ws;
@@ -58,31 +56,8 @@ export function useTelemetrySocket(url = 'ws://localhost:8080') {
       setIsConnected(false);
     }
 
-    // Local simulated stream fallback when WS backend is not yet started
-    fallbackInterval = setInterval(() => {
-      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-        const sensors = ['turbine-01', 'boiler-04', 'pump-12', 'conveyor-09'];
-        const chosen = sensors[Math.floor(Math.random() * sensors.length)];
-        const isAnomaly = Math.random() < 0.12;
-
-        const mockItem = {
-          timestamp: new Date().toLocaleTimeString(),
-          sensorId: chosen,
-          temperature: Number((Math.random() * (isAnomaly ? 20 : 10) + (isAnomaly ? 88 : 70)).toFixed(1)),
-          pressure: Number((Math.random() * 15 + 28).toFixed(1)),
-          vibration: Number((Math.random() * (isAnomaly ? 4 : 2) + (isAnomaly ? 5.5 : 1.8)).toFixed(2)),
-          rpm: Math.floor(Math.random() * 500 + 2800),
-          anomaly: isAnomaly,
-          status: isAnomaly ? 'CRITICAL' : 'NORMAL',
-        };
-
-        handleIncomingTelemetry(mockItem);
-      }
-    }, 1200);
-
     return () => {
       if (ws) ws.close();
-      if (fallbackInterval) clearInterval(fallbackInterval);
     };
   }, [url]);
 

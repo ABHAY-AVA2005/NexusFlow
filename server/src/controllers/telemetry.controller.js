@@ -37,7 +37,10 @@ const createTelemetry = async (req, res, next) => {
         metadata: savedRecord.metadata,
         temperature: savedRecord.temperature,
         pressure: savedRecord.pressure,
-        vibration: savedRecord.vibration
+        vibration: savedRecord.vibration,
+        rpm: savedRecord.rpm,
+        anomaly: savedRecord.anomaly,
+        status: savedRecord.status
       }
     });
   } catch (error) {

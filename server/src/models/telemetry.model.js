@@ -41,7 +41,12 @@ const telemetrySchema = new mongoose.Schema(
     vibration: {
       type: Number,
       required: [true, 'vibration reading is required']
-    }
+    },
+    rpm: Number,
+    anomaly: Boolean,
+    status: String,
+    failureType: String,
+    predictiveRiskScore: Number
   },
   {
     collection: 'telemetry',

@@ -31,3 +31,4 @@
 - **Integrated:** Finalized and validated the `abhay-team-lead` integration work, including the visual rule builder, live telemetry socket, graph alert dispatch, telemetry ingestion, simulator, and dashboard components.
 - **Verified:** Ran all 13 server Node tests successfully and built the Vite client production bundle successfully.
 - **Published:** Prepared the branch's completed daily-log and team integration updates for the next review and merge.
+- **Dataset integration:** Downloaded and added the 250,000-row Kaggle industrial IoT dataset; added continuous CSV replay, RPM/failure metadata support, and removed the dashboard's random WebSocket fallback.

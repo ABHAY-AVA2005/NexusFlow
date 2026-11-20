@@ -12,6 +12,17 @@ This module simulates high-frequency industrial IoT sensors on the factory floor
 
 ## Usage
 
+### Kaggle dataset replay (continuous)
+```bash
+npm run dataset
+
+# Replay faster
+SIM_INTERVAL_MS=500 npm run dataset
+
+# Replay the existing random generator
+npm start
+```
+
 ### 1. Run Telemetry Generator (Normal Mode)
 ```bash
 # Default (1000ms interval, 4 sensors)

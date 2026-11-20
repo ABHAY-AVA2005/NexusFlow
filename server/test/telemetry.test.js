@@ -9,6 +9,7 @@ const {
   startTelemetryWebSocketServer,
 } = require('../src/ws/telemetryServer');
 const { generateTelemetry, SENSORS } = require('../../simulator/simulator');
+const { loadDataset, mapDatasetRow } = require('../../simulator/datasetSimulator');
 
 test('accepts simulator payloads in the telemetry storage schema', () => {
   const generated = generateTelemetry(SENSORS[0]);
@@ -18,6 +19,19 @@ test('accepts simulator payloads in the telemetry storage schema', () => {
   assert.equal(result.telemetry.metadata.deviceId, generated.sensorId);
   assert.equal(result.telemetry.metadata.deviceType, 'turbine');
   assert.ok(result.telemetry.timestamp instanceof Date);
+});
+
+test('maps Kaggle dataset rows into NexusFlow telemetry payloads', () => {
+  const rows = loadDataset();
+  const mapped = mapDatasetRow(rows[0]);
+
+  assert.equal(rows.length, 250000);
+  assert.equal(mapped.deviceId, rows[0].Machine_ID);
+  assert.equal(mapped.temperature, Number(rows[0].Temperature_C));
+  assert.equal(mapped.pressure, Number(rows[0].Pressure_bar));
+  assert.equal(mapped.vibration, Number(rows[0].Vibration_mm_s));
+  assert.equal(mapped.rpm, Number(rows[0].RPM));
+  assert.equal(mapped.anomaly, false);
 });
 
 test('rejects invalid measurements and missing device metadata', () => {

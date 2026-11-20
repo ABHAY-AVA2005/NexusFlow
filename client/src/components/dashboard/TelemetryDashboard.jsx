@@ -42,7 +42,7 @@ export default function TelemetryDashboard() {
               }}
             />
             <span style={{ color: isConnected ? '#10b981' : '#f59e0b' }}>
-              {isConnected ? 'WebSocket Online' : 'Streaming Simulated Telemetry'}
+              {isConnected ? 'WebSocket Online' : 'Waiting for Dataset Stream'}
             </span>
           </div>
 
