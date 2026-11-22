@@ -1,0 +1,16 @@
+{
+  "timestamp": "2026-11-22T18:09:35.912Z",
+  "benchmarkTarget": 5000,
+  "durationSeconds": 3.29,
+  "totalRecordsGenerated": 10000,
+  "successfullyIngested": 10000,
+  "failedRecords": 0,
+  "throughputWritesPerSec": 3040,
+  "auditPassed": false,
+  "latency": {
+    "averageMs": 60.1,
+    "p95Ms": 854,
+    "minMs": 6,
+    "maxMs": 854
+  }
+}
