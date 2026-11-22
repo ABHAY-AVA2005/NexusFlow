@@ -1,4 +1,4 @@
-﻿# NexusFlow — Week 1 Backend Development Progress Log
+# NexusFlow — Week 1 Backend Development Progress Log
 
 | Metadata | Details |
 | :--- | :--- |
@@ -248,3 +248,82 @@ server/
 └── tests/
     └── socket.test.js                 # Integration test suite (24 assertions)
 ```
+
+---
+
+## 22 November 2026 — Backend Audit and RxJS Architecture Planning
+
+| Metadata | Details |
+| :--- | :--- |
+| **Activity** | Backend Infrastructure Audit & RxJS Telemetry Stream Architecture Design |
+| **Author / Role** | Kajal Kumari Singh — Backend & Database Engineer |
+| **Branch** | `kajal-backend` |
+| **Status** | Completed & Verified (Architecture & Audit Only) |
+
+### 1. Completed Activities & Audit Findings
+
+1. **Backend Infrastructure Audit**:
+   - Inspected modular Express 5 server architecture (`server/server.js`), centralized configuration (`server/src/config/env.js`), and health diagnostic endpoint (`/health`).
+   - Inspected MongoDB connection lifecycle (`server/src/config/db.js`) and native time-series schema configuration (`server/src/models/telemetry.model.js`).
+   - Verified that `autoCreate: false` and `autoIndex: false` protect native time-series parameters without Mongoose conflict.
+
+2. **Telemetry Ingestion Review**:
+   - Reviewed REST ingestion path (`POST /api/telemetry` via `server/src/controllers/telemetry.controller.js`).
+   - Reviewed WebSocket real-time ingestion path (`telemetry:send` via `server/src/services/socketManager.js`).
+   - Verified that the shared pure validator `validateTelemetryData` (`server/src/validators/telemetryValidator.js`) serves as the single source of truth across both HTTP and WebSocket transports.
+
+3. **Integration Test Suite Verification**:
+   - Launched local MongoDB instance on port 27017 and executed the integration test suite (`node tests/socket.test.js` / `npm.cmd test`).
+   - Verified 6 test suites across 24 assertions: **24 passed, 0 failed**.
+   - Confirmed:
+     - Socket connection and disconnection lifecycles operate cleanly.
+     - Invalid telemetry payloads are rejected with descriptive errors (`telemetry:error`).
+     - Valid telemetry is acknowledged, persisted to MongoDB, and broadcast (`telemetry:received`).
+     - Real-time broadcasts deliver identical payload fidelity across multiple concurrent clients.
+     - Database persistence directly verified via Mongoose queries; test documents cleanly purged during teardown.
+
+4. **Graph Schema Draft Inspection**:
+   - Inspected `shared/graph-schema.json` and architectural draft `docs/architecture.md` established in project scaffolding.
+   - Verified node types (`source`, `math`, `filter`, `action`) and edge routing specifications (`source`, `target`, `id`).
+
+5. **Compiler Implementation Status & Contract Gap**:
+   - Confirmed that Abhay's graph compiler implementation has not yet been committed to any repository branch.
+   - Identified that the compiled rule format (declarative AST vs. RxJS operator pipe factory vs. bytecode) and rule registration interface remain unconfirmed.
+
+6. **RxJS Telemetry Stream Architecture Design**:
+   - Designed a reactive pipeline based on `telemetryInputStream$` (`Subject<Telemetry>`) fed by validated, persisted telemetry from both REST and Socket.IO ingestion.
+   - Designed device stream partitioning using `groupBy((t) => t.metadata.deviceId)` to isolate windowed metric computations per physical device.
+   - Designed `alertStream$` (`Subject<Alert>`) with throttling/cooldown to prevent alert flooding during prolonged anomaly states.
+   - Designed isolated Socket.IO alert broadcasting on dedicated channel `telemetry:alert`, preserving existing `telemetry:received` contracts without frontend regression.
+
+7. **Eight-Stage Implementation Roadmap**:
+   - Formulated a staged roadmap specifying files, dependencies, expected behaviors, testing strategies, and integration risks:
+     - **Stage 1**: RxJS installation and telemetry stream service (`telemetryStream.service.js`).
+     - **Stage 2**: Integration with REST and Socket.IO ingestion paths.
+     - **Stage 3**: Dynamic rule registration and persistence (`rule.model.js`, `ruleRegistry.service.js`, `POST /api/rules`).
+     - **Stage 4**: Rule execution engine with RxJS dynamic pipelines (`ruleExecutor.service.js`).
+     - **Stage 5**: Alert generation service with throttling cooldown (`alertStream.service.js`).
+     - **Stage 6**: Alert persistence in MongoDB (`alert.model.js`).
+     - **Stage 7**: Real-time Socket.IO alert broadcasting (`telemetry:alert`).
+     - **Stage 8**: Automated end-to-end integration and regression testing.
+
+8. **Integration Risks & Questions for Team Lead Abhay**:
+   - Compiled output format (AST JSON vs. JS function vs. RxJS pipe).
+   - Ingestion/compilation boundary (client-side compilation vs. server-side compiler endpoint).
+   - Rule registration transport (REST API vs. Socket.IO events).
+   - Node config schemas for `source`, `math`, `filter`, and `action` nodes.
+   - Multi-device stream scoping and cross-sensor aggregation requirements.
+   - Rule statefulness and persistence in MongoDB across server restarts.
+   - Runtime error handling and fault isolation for user-defined rules.
+
+### 2. Pending Work & Next Steps
+
+The following tasks remain pending and will proceed once the compiler contract is confirmed:
+
+- **Obtain Abhay's Graph Compiler Contract**: Resolve the 7 technical integration questions regarding compiler output format and rule registration interface.
+- **Implement RxJS Telemetry Stream Ingress**: Install `rxjs` and create `telemetryStream.service.js` (Stage 1).
+- **Integrate REST and Socket.IO Ingestion with the Stream**: Hook both ingestion controllers into `telemetryInputStream$` without modifying existing external payload contracts (Stage 2).
+- **Implement Dynamic Rules and Alerts**: Implement rule registry, dynamic pipeline execution, alert persistence, and `telemetry:alert` socket broadcasting after compiler interface confirmation (Stages 3–8).
+
+> [!NOTE]
+> In strict accordance with the 22 November project guidelines, no application source code was modified, no dependencies were installed, and no mock compiler implementations were created during this audit and design session.
