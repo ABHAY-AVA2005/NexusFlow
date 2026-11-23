@@ -327,3 +327,80 @@ The following tasks remain pending and will proceed once the compiler contract i
 
 > [!NOTE]
 > In strict accordance with the 22 November project guidelines, no application source code was modified, no dependencies were installed, and no mock compiler implementations were created during this audit and design session.
+
+---
+
+## 23 November 2026 — RxJS Stream Architecture Preparation & Conceptual Review
+
+| Metadata | Details |
+| :--- | :--- |
+| **Activity** | Backend Audit, Test Suite Verification, RxJS Core Learning, and Telemetry Stream Pipeline Design |
+| **Author / Role** | Kajal Kumari Singh — Backend & Database Engineer |
+| **Branch** | `kajal-backend` |
+| **Latest Confirmed Commit** | `fa11f37` (`fa11f37 docs(context): record 22 November backend investigation`) |
+| **Implementation Status** | **Architecture Design & Learning Only — RxJS Implementation Not Started / Not Complete** |
+
+### 1. Completed Activities & Technical Verification
+
+1. **Git Repository Status Inspection**:
+   - Verified active branch: `kajal-backend`, synchronized with `origin/kajal-backend`.
+   - Confirmed working tree is clean with zero uncommitted application code changes.
+   - Inspected recent Git commit history (`fa11f37`, `2303718`, `fb7e353`, `b3b53f0`, `568df0d`).
+
+2. **Backend Test Suite Execution & Local MongoDB Verification**:
+   - Verified local MongoDB 9.0 instance active and listening on port `27017` (`D:\Program Files\MongoDB\Server\9.0\data`).
+   - Executed integration test suite: `npm.cmd test` (`node tests/socket.test.js`).
+   - **Result**: All **24 assertions passed across 6 test suites with 0 failures** (connection lifecycle, invalid payload rejection, ack + persistence, multi-client broadcast, and direct MongoDB persistence).
+
+3. **RxJS Core Concepts Learning & Architectural Review**:
+   - **Subject**: Understood as a multicast event bus and broadcasting hub possessing both Observer (`.next()`) and Observable (`.subscribe()`) traits, distributing incoming readings simultaneously to multiple downstream rule pipelines.
+   - **Observable & `asObservable()`**: Established encapsulation boundaries where the backing Subject remains private, and consumers access a read-only Observable to prevent external code or custom rules from injecting arbitrary data into the stream.
+   - **Subscription & Lifecycle Management**: Examined active subscription handles, the necessity of explicit `.unsubscribe()` calls when rules are deleted or updated, and the use of an in-memory `Map<ruleId, Subscription>` registry to prevent memory leaks and zombie rule execution.
+   - **Core Reactive Operators**:
+     - `filter`: Gating readings based on device criteria or thresholds (e.g. `temperature > 85`).
+     - `map`: Transforming telemetry structures or scaling units without mutating raw source records.
+     - `tap`: Non-intrusive logging, stream auditing, and diagnostic metrics.
+     - `catchError`: Intercepting operator errors and returning `EMPTY` to ensure an isolated rule failure cannot terminate the central telemetry stream.
+     - `mergeMap`: Concurrently projecting incoming telemetry into asynchronous sub-tasks (such as external webhook alerts) without blocking the parent stream.
+     - `defer`: Creating fresh Observable instances per subscriber for lazy evaluation.
+
+4. **Telemetry Stream Service Design (`server/src/services/telemetryStream.service.js`)**:
+   - Formulated module architecture for a dedicated singleton service:
+     - Encapsulated private `Subject` instance (`_telemetrySubject$`).
+     - `publishTelemetry(record)`: Public ingestion method receiving verified documents and pushing to stream via `.next(record)`.
+     - `getTelemetryStream()`: Returns read-only Observable via `_telemetrySubject$.asObservable()`.
+     - `getSubscriberCount()` / `getIngestedCount()`: Health diagnostics and memory leak monitoring.
+     - `destroyStream()`: Graceful completion hook for server shutdown and integration test cleanup.
+   - **Zero Logic Duplication**: Validation remains exclusively in `telemetryValidator.js`, and database persistence remains exclusively in Mongoose `Telemetry.create()`.
+
+5. **Exact Integration Points with Existing Backend**:
+   - **REST Controller (`server/src/controllers/telemetry.controller.js`)**:
+     - Ingestion point: Immediately following `const savedRecord = await Telemetry.create(telemetryData);` in `createTelemetry`.
+     - Guarantees that only valid, persisted records with database IDs enter the stream; validation errors (HTTP 400) and database write failures (catch block) never emit.
+   - **Socket.IO Manager (`server/src/services/socketManager.js`)**:
+     - Ingestion point: Immediately following `const savedRecord = await Telemetry.create(result.sanitized);` inside the `telemetry:send` handler.
+     - Dispatches to `publishTelemetry(savedRecord)` concurrently with existing `io.emit('telemetry:received')`, preserving existing dashboard broadcasts with zero regressions.
+
+6. **Automated Test Matrix Design**:
+   - **TC-01 (Single Ingress)**: Verified record published to stream arrives at subscriber with matched fields.
+   - **TC-02 (Sequential Streaming)**: 5 distinct records published in sequence arrive in exact FIFO order.
+   - **TC-03 (Invalid Payload Rejection)**: Malformed or non-object payloads rejected; zero emissions to stream.
+   - **TC-04 (Database Failure Barrier)**: Simulated MongoDB write failures caught; zero emissions to stream.
+   - **TC-05 (Concurrent Subscribers)**: Multiple independent rule subscribers receive identical telemetry simultaneously.
+   - **TC-06 (Subscriber Error Isolation)**: Broken subscriber throwing an error does not crash peer subscribers or the root stream.
+   - **TC-07 (Subscription Teardown)**: Unsubscribed listeners stop receiving events; subscriber count decreases.
+
+7. **Integration Risks & Architectural Divergence**:
+   - **Transport Protocol Conflict**: Socket.IO 4 on port 5000 (Kajal) vs. native `ws` on port 8080 (Abhay).
+   - **Dependency Mismatch**: Express `5.3.0` vs `4.21.2`, Mongoose `9.12.1` vs `8.7.3`, missing `rxjs` in `kajal-backend`.
+   - **Rule Persistence Gap**: Abhay's in-memory `GraphModel` loses rules on restart; requires a persistent MongoDB schema.
+   - **Temporal Operator Gap**: Abhay's `nodeOperators.js` lacks time-windowing (`bufferTime`, `windowTime`, moving averages).
+   - **Device Partitioning**: Compiler lacks per-device stream scoping (`groupBy(t => t.metadata.deviceId)`).
+
+### 2. Adherence to Project Constraints
+
+- Strictly operated on `kajal-backend` branch with zero branch switching or merging.
+- Application source code completely preserved without modifications.
+- No new dependencies installed.
+- No artificial commits or automated pushes performed.
+- Clearly recorded that RxJS implementation is in design/preparation status and not yet implemented in production code.
