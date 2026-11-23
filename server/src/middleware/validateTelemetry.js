@@ -101,12 +101,7 @@ const sanitizeTelemetry = (body) => {
       },
       temperature: Number(body.temperature),
       pressure: Number(body.pressure),
-      vibration: Number(body.vibration),
-      rpm: isValidNumber(body.rpm) ? Number(body.rpm) : undefined,
-      anomaly: typeof body.anomaly === 'boolean' ? body.anomaly : undefined,
-      status: isNonEmptyString(body.status) ? body.status : undefined,
-      failureType: isNonEmptyString(body.failureType) ? body.failureType : undefined,
-      predictiveRiskScore: isValidNumber(body.predictiveRiskScore) ? Number(body.predictiveRiskScore) : undefined
+      vibration: Number(body.vibration)
     },
   };
 };

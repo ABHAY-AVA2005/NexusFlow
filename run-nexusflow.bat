@@ -22,6 +22,6 @@ if not exist "%ROOT%client\node_modules" (
 echo Starting NexusFlow. MongoDB must be running for telemetry ingestion.
 start "NexusFlow Server" /D "%ROOT%server" cmd /k "npm start"
 start "NexusFlow Client" /D "%ROOT%client" cmd /k "npm run dev"
-start "NexusFlow Simulator" /D "%ROOT%simulator" cmd /k "npm run dataset"
+start "NexusFlow Simulator" /D "%ROOT%simulator" cmd /k "npm start"
 
 endlocal
