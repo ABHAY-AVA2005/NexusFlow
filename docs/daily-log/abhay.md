@@ -36,4 +36,5 @@
 
 - **Updated:** Restored randomized telemetry as the sole simulator workflow, including the Windows quick-start script and dashboard fallback when the WebSocket server is offline.
 - **Cleaned up:** Removed Kaggle-specific telemetry fields from ingestion and storage and removed the dataset replay test.
-- **Verified:** All 13 server tests pass, and the client production build succeeds.
+- **Implemented:** Added live rule activation and deactivation, connecting ingested telemetry to active RxJS graphs and delivering triggered alerts through the existing webhook/mock-SMS and WebSocket pipeline.
+- **Verified:** All 16 server tests pass, and the client production build succeeds.

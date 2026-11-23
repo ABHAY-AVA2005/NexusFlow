@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactFlow, {
   addEdge,
   Background,
@@ -20,11 +20,23 @@ const palette = [
 
 export default function RuleBuilder() {
   const idRef = useRef(1);
+  const activeGraphIdRef = useRef(null);
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [status, setStatus] = useState('');
   const [activeEdges, setActiveEdges] = useState(new Set());
+  const [activeGraphId, setActiveGraphId] = useState(null);
   const nodeTypes = useMemo(() => ({ rule: RuleNode }), []);
+
+  useEffect(() => () => {
+    if (!activeGraphIdRef.current) return;
+    fetch(`http://localhost:4000/api/graphs/activate/${encodeURIComponent(activeGraphIdRef.current)}`, {
+      method: 'DELETE',
+      keepalive: true,
+    }).catch((error) => {
+      console.error('Failed to stop live rule when leaving the builder:', error);
+    });
+  }, []);
 
   const addNode = (item) => {
     const id = `${item.type}-${idRef.current++}`;
@@ -83,6 +95,46 @@ export default function RuleBuilder() {
     }
   };
 
+  const activateGraph = async () => {
+    setStatus('Activating live rule...');
+    try {
+      const response = await fetch('http://localhost:4000/api/graphs/activate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(serializeGraph(nodes, edges)),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.message || 'Rule activation failed');
+
+      activeGraphIdRef.current = payload.graphId;
+      setActiveGraphId(payload.graphId);
+      setActiveEdges(new Set(edges.map((edge) => edge.id)));
+      setStatus(`Live rule active (${payload.graphId}); evaluating incoming telemetry`);
+    } catch (error) {
+      setStatus(error.message);
+    }
+  };
+
+  const deactivateGraph = async () => {
+    if (!activeGraphId) return;
+    setStatus('Stopping live rule...');
+    try {
+      const response = await fetch(
+        `http://localhost:4000/api/graphs/activate/${encodeURIComponent(activeGraphId)}`,
+        { method: 'DELETE' }
+      );
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.message || 'Rule deactivation failed');
+
+      activeGraphIdRef.current = null;
+      setActiveGraphId(null);
+      setActiveEdges(new Set());
+      setStatus('Live rule stopped');
+    } catch (error) {
+      setStatus(error.message);
+    }
+  };
+
   const displayEdges = edges.map((edge) => ({
     ...edge,
     animated: activeEdges.has(edge.id),
@@ -119,6 +171,12 @@ export default function RuleBuilder() {
         </button>
         <button onClick={executeGraph} style={{ width: '100%', marginTop: 8, padding: 10, border: '1px solid #38bdf8', borderRadius: 6, background: 'transparent', color: '#38bdf8', cursor: 'pointer' }}>
           Test Execution
+        </button>
+        <button
+          onClick={activeGraphId ? deactivateGraph : activateGraph}
+          style={{ width: '100%', marginTop: 8, padding: 10, border: 0, borderRadius: 6, background: activeGraphId ? '#ef4444' : '#10b981', color: '#07111f', cursor: 'pointer', fontWeight: 700 }}
+        >
+          {activeGraphId ? 'Stop Live Rule' : 'Run Live Rule'}
         </button>
         {status && <p style={{ marginTop: 12, fontSize: 12, color: '#94a3b8' }}>{status}</p>}
       </aside>

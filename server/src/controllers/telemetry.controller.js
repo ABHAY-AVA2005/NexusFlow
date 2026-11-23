@@ -1,11 +1,17 @@
 const Telemetry = require('../models/telemetry.model');
 const { broadcastTelemetry } = require('../ws/telemetryServer');
+const { processTelemetry: processLiveTelemetry } = require('../engine/liveRuleRegistry');
 
 const toBroadcastPayload = (input, savedRecord) => ({
   ...input,
   sensorId: input.sensorId || input.deviceId || input.metadata?.deviceId,
   timestamp: savedRecord.timestamp,
 });
+
+const publishTelemetry = (telemetry) => {
+  broadcastTelemetry(telemetry);
+  processLiveTelemetry(telemetry);
+};
 
 /**
  * Ingest IoT Telemetry Reading
@@ -26,7 +32,7 @@ const createTelemetry = async (req, res, next) => {
     }
 
     const savedRecord = await Telemetry.create(telemetryData);
-    broadcastTelemetry(toBroadcastPayload(req.body, savedRecord));
+    publishTelemetry(toBroadcastPayload(req.body, savedRecord));
 
     return res.status(201).json({
       status: 'success',
@@ -55,7 +61,7 @@ const createTelemetryBatch = async (req, res, next) => {
     const telemetry = records.map((record, index) =>
       toBroadcastPayload(req.body.batch[index], record)
     );
-    telemetry.forEach(broadcastTelemetry);
+    telemetry.forEach(publishTelemetry);
 
     return res.status(201).json({
       status: 'success',
