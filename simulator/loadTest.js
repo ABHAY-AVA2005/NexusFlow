@@ -27,7 +27,18 @@ async function runBenchmark() {
   let totalFailed = 0;
   const startTime = Date.now();
 
-  const parsed = new URL(TARGET_URL);
+  let parsed;
+  try {
+    parsed = new URL(TARGET_URL);
+  } catch (err) {
+    console.error(`Invalid bulk telemetry URL "${TARGET_URL}": ${err.message}`);
+    return;
+  }
+
+  if (parsed.protocol !== 'http:') {
+    console.error(`Unsupported telemetry URL protocol: ${parsed.protocol}`);
+    return;
+  }
 
   function sendBatch() {
     return new Promise((resolve) => {
@@ -42,8 +53,8 @@ async function runBenchmark() {
 
       const req = http.request({
         hostname: parsed.hostname,
-        port: parsed.port || 5000,
-        path: parsed.pathname,
+        port: parsed.port || 80,
+        path: `${parsed.pathname}${parsed.search}`,
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

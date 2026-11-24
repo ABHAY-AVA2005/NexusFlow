@@ -8,9 +8,19 @@
 
 const http = require('http');
 
-const INTERVAL_MS = parseInt(process.env.SIM_INTERVAL_MS || process.argv[2] || '1000', 10);
+function getPositiveInteger(value, fallback) {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function getProbability(value, fallback) {
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? Math.min(1, Math.max(0, parsed)) : fallback;
+}
+
+const INTERVAL_MS = getPositiveInteger(process.env.SIM_INTERVAL_MS || process.argv[2] || '1000', 1000);
 const TARGET_URL = process.env.INGEST_URL || 'http://localhost:4000/api/telemetry';
-const ANOMALY_CHANCE = parseFloat(process.env.ANOMALY_CHANCE || '0.15'); // 15% anomaly rate
+const ANOMALY_CHANCE = getProbability(process.env.ANOMALY_CHANCE || '0.15', 0.15); // 15% anomaly rate
 
 const SENSORS = [
   { id: 'turbine-01', type: 'turbine', location: 'Section A - Power Gen', tempBase: 72, pressBase: 30, vibBase: 2.2 },
@@ -44,6 +54,8 @@ function generateTelemetry(sensor) {
     ? randomValue(3200, 3800, 0)
     : randomValue(2800, 3050, 0);
 
+  const hasBreachedThreshold = temperature > 88 || vibration > 5.5;
+
   return {
     timestamp: new Date().toISOString(),
     deviceId: sensor.id,
@@ -55,8 +67,8 @@ function generateTelemetry(sensor) {
     pressure,
     vibration,
     rpm,
-    anomaly: isAnomaly || temperature > 88 || vibration > 5.5,
-    status: isAnomaly ? 'CRITICAL' : (temperature > 82 ? 'WARNING' : 'NORMAL'),
+    anomaly: isAnomaly || hasBreachedThreshold,
+    status: isAnomaly || hasBreachedThreshold ? 'CRITICAL' : (temperature > 82 ? 'WARNING' : 'NORMAL'),
   };
 }
 
@@ -126,12 +138,15 @@ function startSimulator() {
     postTelemetry(telemetry);
   }, INTERVAL_MS);
 
-  // Handle graceful shutdown
-  process.on('SIGINT', () => {
+  const stop = (signal) => {
     clearInterval(timer);
-    console.log('\n🛑 Telemetry Simulator stopped gracefully.');
-    process.exit(0);
-  });
+    console.log(`\n🛑 Telemetry Simulator stopped gracefully (${signal}).`);
+  };
+
+  process.once('SIGINT', () => stop('SIGINT'));
+  process.once('SIGTERM', () => stop('SIGTERM'));
+
+  return timer;
 }
 
 if (require.main === module) {
@@ -141,5 +156,6 @@ if (require.main === module) {
 module.exports = {
   generateTelemetry,
   SENSORS,
+  postTelemetry,
   startSimulator,
 };

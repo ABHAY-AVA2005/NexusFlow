@@ -38,3 +38,9 @@
 - **Cleaned up:** Removed Kaggle-specific telemetry fields from ingestion and storage and removed the dataset replay test.
 - **Implemented:** Added live rule activation and deactivation, connecting ingested telemetry to active RxJS graphs and delivering triggered alerts through the existing webhook/mock-SMS and WebSocket pipeline.
 - **Verified:** All 16 server tests pass, and the client production build succeeds.
+
+## 2026-11-25
+
+- **Hardened:** Added validated telemetry simulator interval and anomaly settings, threshold-consistent anomaly status, and graceful SIGINT/SIGTERM shutdown.
+- **Fixed:** Corrected bulk load-test destination handling so custom ports and query strings are preserved.
+- **Verified:** Re-ran the server test suite and client production build before preparing the final commit.
