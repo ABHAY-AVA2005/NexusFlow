@@ -32,7 +32,21 @@ function broadcastTelemetry(telemetry) {
   });
 }
 
+function broadcastAlert(alert) {
+  if (!webSocketServer) {
+    return;
+  }
+
+  const message = JSON.stringify({ type: 'alert', alert });
+  webSocketServer.clients.forEach((client) => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(message);
+    }
+  });
+}
+
 module.exports = {
   startTelemetryWebSocketServer,
   broadcastTelemetry,
+  broadcastAlert,
 };

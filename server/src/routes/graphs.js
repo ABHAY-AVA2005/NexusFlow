@@ -1,6 +1,9 @@
 const express = require('express');
 const { compileGraph } = require('../compiler/graphCompiler');
 const { createRuleEngine } = require('../engine/ruleEngine');
+const { activateRuleGraph, deactivateRuleGraph } = require('../engine/liveRuleRegistry');
+const { dispatchActionAlert } = require('../alerting/alertService');
+const { broadcastAlert } = require('../ws/telemetryServer');
 
 const router = express.Router();
 
@@ -27,13 +30,40 @@ router.post('/compile', (req, res) => {
   }
 });
 
+router.post('/activate', (req, res) => {
+  try {
+    const result = activateRuleGraph(req.body || {});
+    res.status(201).json({ ok: true, ...result });
+  } catch (error) {
+    res.status(400).json({ ok: false, message: error.message });
+  }
+});
+
+router.delete('/activate/:graphId', (req, res) => {
+  const stopped = deactivateRuleGraph(req.params.graphId);
+  if (!stopped) {
+    return res.status(404).json({ ok: false, message: 'Active rule graph not found.' });
+  }
+
+  return res.json({ ok: true, graphId: req.params.graphId });
+});
+
 router.post('/execute', async (req, res) => {
   try {
     const { graph, telemetry } = req.body || {};
     const engine = createRuleEngine(graph || {});
     const result = await engine.processTelemetry(telemetry || {});
 
-    res.json({ ok: true, result, compiled: engine.compiled });
+    let alertDispatch = null;
+    if (result && result.alert) {
+      alertDispatch = await dispatchActionAlert({
+        message: result.message || 'Rule threshold exceeded',
+        telemetry: result,
+      });
+      broadcastAlert(alertDispatch.payload);
+    }
+
+    res.json({ ok: true, result, alertDispatch, compiled: engine.compiled });
   } catch (error) {
     res.status(400).json({ ok: false, message: error.message });
   }

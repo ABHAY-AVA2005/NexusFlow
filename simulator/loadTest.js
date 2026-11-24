@@ -7,7 +7,7 @@ const { generateTelemetry, SENSORS } = require('./simulator');
 function parseArgs() {
   const args = process.argv.slice(2);
   const config = {
-    targetUrl: process.env.INGEST_BULK_URL || 'http://localhost:5000/api/telemetry/bulk',
+    targetUrl: process.env.INGEST_BULK_URL || 'http://localhost:4000/api/telemetry/bulk',
     durationSec: parseInt(process.env.LOAD_DURATION_SEC || '5', 10),
     targetRps: parseInt(process.env.TARGET_RPS || '5000', 10),
     batchSize: parseInt(process.env.BATCH_SIZE || '500', 10),
@@ -26,6 +26,10 @@ function parseArgs() {
       i++;
     }
   }
+
+  config.durationSec = Number.isFinite(config.durationSec) && config.durationSec > 0 ? config.durationSec : 5;
+  config.targetRps = Number.isFinite(config.targetRps) && config.targetRps > 0 ? config.targetRps : 5000;
+  config.batchSize = Number.isFinite(config.batchSize) && config.batchSize > 0 ? config.batchSize : 500;
 
   return config;
 }
@@ -48,7 +52,18 @@ async function runBenchmark() {
   const latencies = [];
   const startTime = Date.now();
 
-  const parsed = new URL(config.targetUrl);
+  let parsed;
+  try {
+    parsed = new URL(config.targetUrl);
+  } catch (err) {
+    console.error(`Invalid bulk telemetry URL "${config.targetUrl}": ${err.message}`);
+    return;
+  }
+
+  if (parsed.protocol !== 'http:') {
+    console.error(`Unsupported telemetry URL protocol: ${parsed.protocol}`);
+    return;
+  }
 
   function sendBatch() {
     return new Promise((resolve) => {
@@ -75,8 +90,8 @@ async function runBenchmark() {
       const req = http.request(
         {
           hostname: parsed.hostname,
-          port: parsed.port || 5000,
-          path: parsed.pathname,
+          port: parsed.port || 80,
+          path: `${parsed.pathname}${parsed.search}`,
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

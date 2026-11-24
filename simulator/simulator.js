@@ -35,7 +35,7 @@ function parseArgs() {
     intervalMs: null,
     anomalyRate: null,
     selectedSensors: null,
-    targetUrl: process.env.INGEST_URL || 'http://localhost:5000/api/telemetry',
+    targetUrl: process.env.INGEST_URL || 'http://localhost:4000/api/telemetry',
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -55,8 +55,12 @@ function parseArgs() {
   }
 
   const activeProfile = PROFILES[config.profile] || PROFILES.normal;
-  config.intervalMs = config.intervalMs || activeProfile.intervalMs;
-  config.anomalyRate = config.anomalyRate !== null ? config.anomalyRate : activeProfile.anomalyRate;
+  config.intervalMs = Number.isFinite(config.intervalMs) && config.intervalMs > 0
+    ? config.intervalMs
+    : activeProfile.intervalMs;
+  config.anomalyRate = config.anomalyRate !== null
+    ? Math.min(1, Math.max(0, config.anomalyRate))
+    : activeProfile.anomalyRate;
 
   return config;
 }
@@ -64,15 +68,16 @@ function parseArgs() {
 const config = parseArgs();
 
 const ALL_SENSORS = [
-  { id: 'turbine-01', location: 'Section A - Power Gen', tempBase: 72, pressBase: 30, vibBase: 2.2 },
-  { id: 'boiler-04', location: 'Section B - Thermal', tempBase: 80, pressBase: 45, vibBase: 1.8 },
-  { id: 'pump-12', location: 'Section C - Coolant', tempBase: 65, pressBase: 28, vibBase: 3.5 },
-  { id: 'conveyor-09', location: 'Section D - Assembly', tempBase: 55, pressBase: 15, vibBase: 4.1 },
+  { id: 'turbine-01', type: 'turbine', location: 'Section A - Power Gen', tempBase: 72, pressBase: 30, vibBase: 2.2 },
+  { id: 'boiler-04', type: 'boiler', location: 'Section B - Thermal', tempBase: 80, pressBase: 45, vibBase: 1.8 },
+  { id: 'pump-12', type: 'pump', location: 'Section C - Coolant', tempBase: 65, pressBase: 28, vibBase: 3.5 },
+  { id: 'conveyor-09', type: 'conveyor', location: 'Section D - Assembly', tempBase: 55, pressBase: 15, vibBase: 4.1 },
 ];
 
 const ACTIVE_SENSORS = config.selectedSensors
   ? ALL_SENSORS.filter((s) => config.selectedSensors.includes(s.id))
   : ALL_SENSORS;
+const EFFECTIVE_SENSORS = ACTIVE_SENSORS.length > 0 ? ACTIVE_SENSORS : ALL_SENSORS;
 
 function randomValue(min, max, decimals = 2) {
   const val = Math.random() * (max - min) + min;
@@ -98,8 +103,12 @@ function generateTelemetry(sensor, customAnomalyRate = config.anomalyRate) {
     ? randomValue(3200, 3800, 0)
     : randomValue(2800, 3050, 0);
 
+  const hasBreachedThreshold = temperature > 88 || vibration > 5.5;
+
   return {
     timestamp: new Date().toISOString(),
+    deviceId: sensor.id,
+    deviceType: sensor.type,
     sensorId: sensor.id,
     sensor: sensor.id,
     location: sensor.location,
@@ -107,21 +116,25 @@ function generateTelemetry(sensor, customAnomalyRate = config.anomalyRate) {
     pressure,
     vibration,
     rpm,
-    anomaly: isAnomaly || temperature > 88 || vibration > 5.5,
-    status: isAnomaly ? 'CRITICAL' : temperature > 82 ? 'WARNING' : 'NORMAL',
+    anomaly: isAnomaly || hasBreachedThreshold,
+    status: isAnomaly || hasBreachedThreshold ? 'CRITICAL' : temperature > 82 ? 'WARNING' : 'NORMAL',
   };
 }
 
 function postTelemetry(data) {
   try {
     const parsed = new URL(config.targetUrl);
+    if (parsed.protocol !== 'http:') {
+      console.error(`Unsupported telemetry URL protocol: ${parsed.protocol}`);
+      return;
+    }
     const postData = JSON.stringify(data);
 
     const req = http.request(
       {
         hostname: parsed.hostname,
-        port: parsed.port || 5000,
-        path: parsed.pathname,
+        port: parsed.port || 80,
+        path: `${parsed.pathname}${parsed.search}`,
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -144,12 +157,12 @@ function startSimulator() {
   console.log(`📋 Active Profile : ${config.profile.toUpperCase()}`);
   console.log(`📡 Interval       : ${config.intervalMs}ms`);
   console.log(`⚠️ Anomaly Rate   : ${(config.anomalyRate * 100).toFixed(0)}%`);
-  console.log(`🎯 Sensors (${ACTIVE_SENSORS.length})    : ${ACTIVE_SENSORS.map((s) => s.id).join(', ')}`);
+  console.log(`🎯 Sensors (${EFFECTIVE_SENSORS.length})    : ${EFFECTIVE_SENSORS.map((s) => s.id).join(', ')}`);
   console.log('=====================================================\n');
 
   let sensorIndex = 0;
   const timer = setInterval(() => {
-    const sensor = ACTIVE_SENSORS[sensorIndex % ACTIVE_SENSORS.length];
+    const sensor = EFFECTIVE_SENSORS[sensorIndex % EFFECTIVE_SENSORS.length];
     sensorIndex++;
 
     const telemetry = generateTelemetry(sensor);
@@ -162,11 +175,15 @@ function startSimulator() {
     postTelemetry(telemetry);
   }, config.intervalMs);
 
-  process.on('SIGINT', () => {
+  const stop = (signal) => {
     clearInterval(timer);
-    console.log('\n🛑 Telemetry Simulator stopped gracefully.');
-    process.exit(0);
-  });
+    console.log(`\n🛑 Telemetry Simulator stopped gracefully (${signal}).`);
+  };
+
+  process.once('SIGINT', () => stop('SIGINT'));
+  process.once('SIGTERM', () => stop('SIGTERM'));
+
+  return timer;
 }
 
 if (require.main === module) {
@@ -178,5 +195,6 @@ module.exports = {
   SENSORS: ALL_SENSORS,
   PROFILES,
   parseArgs,
+  postTelemetry,
   startSimulator,
 };

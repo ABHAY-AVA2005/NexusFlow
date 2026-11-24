@@ -25,3 +25,22 @@
 - **Implemented:** Hardened the compiler and rule engine for iterable telemetry payloads and testable app startup.
   **Reason/tools:** Node.js and RxJS now accept arrays of telemetry records and the Express app can be imported without auto-starting a listener, which makes integration and validation safer.
 - **Verified:** Ran the server suite to confirm the updated graph engine still passes all checks.
+
+## 2026-11-20
+
+- **Integrated:** Finalized and validated the `abhay-team-lead` integration work, including the visual rule builder, live telemetry socket, graph alert dispatch, telemetry ingestion, simulator, and dashboard components.
+- **Verified:** Ran all 13 server Node tests successfully and built the Vite client production bundle successfully.
+- **Published:** Prepared the branch's completed daily-log and team integration updates for the next review and merge.
+
+## 2026-11-23
+
+- **Updated:** Restored randomized telemetry as the sole simulator workflow, including the Windows quick-start script and dashboard fallback when the WebSocket server is offline.
+- **Cleaned up:** Removed Kaggle-specific telemetry fields from ingestion and storage and removed the dataset replay test.
+- **Implemented:** Added live rule activation and deactivation, connecting ingested telemetry to active RxJS graphs and delivering triggered alerts through the existing webhook/mock-SMS and WebSocket pipeline.
+- **Verified:** All 16 server tests pass, and the client production build succeeds.
+
+## 2026-11-25
+
+- **Hardened:** Added validated telemetry simulator interval and anomaly settings, threshold-consistent anomaly status, and graceful SIGINT/SIGTERM shutdown.
+- **Fixed:** Corrected bulk load-test destination handling so custom ports and query strings are preserved.
+- **Verified:** Re-ran the server test suite and client production build before preparing the final commit.
