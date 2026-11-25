@@ -61,7 +61,12 @@ export default function App() {
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto' }}>
-        {activeTab === 'dashboard' ? <TelemetryDashboard /> : <RuleBuilder />}
+        <div style={{ display: activeTab === 'dashboard' ? 'block' : 'none', height: '100%' }}>
+          <TelemetryDashboard />
+        </div>
+        <div style={{ display: activeTab === 'canvas' ? 'block' : 'none', height: '100%' }}>
+          <RuleBuilder />
+        </div>
       </div>
     </div>
   );

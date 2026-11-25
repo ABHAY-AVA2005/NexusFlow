@@ -85,6 +85,20 @@ export function useTelemetrySocket(url = 'ws://localhost:8080') {
           if (isCancelled) return;
           try {
             const data = JSON.parse(event.data);
+            if (data.type === 'alert') {
+              const alert = data.alert || {};
+              setAlerts((prev) => [
+                {
+                  id: Date.now() + Math.random(),
+                  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+                  sensorId: alert.telemetry?.sensorId || alert.telemetry?.deviceId || 'Live rule',
+                  message: alert.message || 'The live rule was triggered',
+                  severity: 'HIGH',
+                },
+                ...prev.slice(0, 19),
+              ]);
+              return;
+            }
             ingest(data);
           } catch {}
         };
@@ -167,6 +181,15 @@ export function useTelemetrySocket(url = 'ws://localhost:8080') {
 
   const togglePause = () => setIsPaused((prev) => !prev);
   const clearAlerts = () => setAlerts([]);
+  const manualReconnect = () => {
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) return;
+    setConnectionStatus('RECONNECTING');
+    reconnectAttemptsRef.current = 0;
+  };
 
   return {
     telemetryData,
@@ -177,5 +200,6 @@ export function useTelemetrySocket(url = 'ws://localhost:8080') {
     togglePause,
     sensorSummary,
     clearAlerts,
+    manualReconnect,
   };
 }

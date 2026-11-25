@@ -33,6 +33,8 @@ export default function RuleBuilder() {
   const [activeEdges, setActiveEdges] = useState(new Set());
   const [activeGraphId, setActiveGraphId] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [lastTest, setLastTest] = useState(null);
+  const [step, setStep] = useState(1);
   const nodeTypes = useMemo(() => ({ rule: RuleNode }), []);
 
   const validateCanvasBeforeUse = () => {
@@ -81,10 +83,15 @@ export default function RuleBuilder() {
   );
 
   const clearCanvas = () => {
+    if (activeGraphId) {
+      deactivateGraph();
+    }
     setNodes([]);
     setEdges([]);
     setActiveEdges(new Set());
     setSelectedItem(null);
+    setLastTest(null);
+    setStep(1);
     setStatus('Canvas cleared. Add a Source, a Filter, and an Alert.');
   };
 
@@ -128,6 +135,9 @@ export default function RuleBuilder() {
   });
 
   const loadExampleRule = async () => {
+    if (activeGraphId) {
+      await deactivateGraph();
+    }
     setStatus('Loading the example rule...');
     try {
       const response = await fetch('http://localhost:4000/api/graphs/sample');
@@ -146,6 +156,8 @@ export default function RuleBuilder() {
       setNodes(example.nodes);
       setEdges(example.edges);
       setActiveEdges(new Set());
+      setLastTest(null);
+      setStep(1);
       setStatus('Example loaded: Source → Filter → Alert. Drag from a dot on the right to a dot on the left.');
     } catch (error) {
       setStatus(error.message);
@@ -172,7 +184,8 @@ export default function RuleBuilder() {
       if (!response.ok) throw new Error(payload.message || 'Graph compilation failed');
 
       setActiveEdges(new Set(edges.map((edge) => edge.id)));
-      setStatus(`Compiled ${payload.compiled.nodeCount} nodes and ${payload.compiled.edgeCount} edges`);
+      setStep(2);
+      setStatus(`Step 1 complete: the rule structure is valid. It has ${payload.compiled.nodeCount} nodes and ${payload.compiled.edgeCount} connections.`);
       window.setTimeout(() => setActiveEdges(new Set()), 2200);
     } catch (error) {
       setStatus(error.message);
@@ -197,7 +210,19 @@ export default function RuleBuilder() {
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.message || 'Graph execution failed');
       setActiveEdges(new Set(edges.map((edge) => edge.id)));
-      setStatus(payload.result ? `Execution result: ${payload.result.message || 'triggered'}` : 'No result: telemetry did not pass the graph');
+      setStep(payload.result ? 3 : 2);
+      setLastTest(payload.result ? {
+        triggered: true,
+        message: payload.result.message || 'High temperature alert',
+        temperature: 92,
+      } : {
+        triggered: false,
+        message: 'No alert: 92°C did not satisfy this rule.',
+        temperature: 92,
+      });
+      setStatus(payload.result
+        ? 'Step 2 complete: the test rule triggered. Its alert message is “High temperature alert.”'
+        : 'Step 2 complete: the test reading did not trigger. The rule and filter settings are ready to adjust.');
     } catch (error) {
       setStatus(error.message);
     }
@@ -222,7 +247,8 @@ export default function RuleBuilder() {
       activeGraphIdRef.current = payload.graphId;
       setActiveGraphId(payload.graphId);
       setActiveEdges(new Set(edges.map((edge) => edge.id)));
-      setStatus(`Live rule active (${payload.graphId}); evaluating incoming telemetry`);
+      setStep(3);
+      setStatus('Step 3 active: this rule is listening to live telemetry. Keep this page open and watch for a red alert on the dashboard.');
     } catch (error) {
       setStatus(error.message);
     }
@@ -328,18 +354,78 @@ export default function RuleBuilder() {
             </p>
           </div>
         ))}
+        <div style={{ marginTop: 12, padding: '10px', border: '1px solid #334155', borderRadius: 8, background: '#0d1b2a' }}>
+          <div style={{ marginBottom: 8, fontSize: 12, fontWeight: 700, color: '#e2e8f0' }}>
+            3 simple steps
+          </div>
+          {[
+            { number: 1, label: 'Check the rule', detail: 'Verifies that every node is connected.' },
+            { number: 2, label: 'Try 92°C safely', detail: 'Uses sample data; no live machine changes.' },
+            { number: 3, label: 'Watch live readings', detail: 'Starts this rule against real incoming telemetry.' },
+          ].map((item) => (
+            <div
+              key={item.number}
+              style={{
+                display: 'flex',
+                gap: 8,
+                marginBottom: 7,
+                padding: 6,
+                borderRadius: 6,
+                background: step === item.number ? '#38bdf81a' : 'transparent',
+                border: step === item.number ? '1px solid #38bdf866' : '1px solid transparent',
+              }}
+            >
+              <div style={{
+                width: 20,
+                height: 20,
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+                background: step > item.number ? '#10b981' : step === item.number ? '#38bdf8' : '#334155',
+                color: '#07111f',
+                fontSize: 11,
+                fontWeight: 800,
+              }}>
+                {step > item.number ? '✓' : item.number}
+              </div>
+              <div>
+                <div style={{ fontSize: 12, color: '#e2e8f0', fontWeight: 700 }}>{item.label}</div>
+                <div style={{ marginTop: 2, fontSize: 10, lineHeight: 1.35, color: '#94a3b8' }}>{item.detail}</div>
+              </div>
+            </div>
+          ))}
+        </div>
         <button onClick={compileGraph} style={{ width: '100%', marginTop: 12, padding: 10, border: 0, borderRadius: 6, background: '#38bdf8', color: '#07111f', cursor: 'pointer', fontWeight: 700 }}>
-          Compile Graph
+          1. Check My Rule
         </button>
         <button onClick={executeGraph} style={{ width: '100%', marginTop: 8, padding: 10, border: '1px solid #38bdf8', borderRadius: 6, background: 'transparent', color: '#38bdf8', cursor: 'pointer' }}>
-          Test Execution
+          2. Test with 92°C
         </button>
         <button
           onClick={activeGraphId ? deactivateGraph : activateGraph}
           style={{ width: '100%', marginTop: 8, padding: 10, border: 0, borderRadius: 6, background: activeGraphId ? '#ef4444' : '#10b981', color: '#07111f', cursor: 'pointer', fontWeight: 700 }}
         >
-          {activeGraphId ? 'Stop Live Rule' : 'Run Live Rule'}
+          {activeGraphId ? '3. Stop Live Watching' : '3. Start Live Watching'}
         </button>
+        {lastTest && (
+          <div style={{ marginTop: 10, padding: 10, borderRadius: 6, border: `1px solid ${lastTest.triggered ? '#f59e0b' : '#334155'}`, background: lastTest.triggered ? '#f59e0b15' : '#111c2e' }}>
+            <div style={{ fontSize: 11, color: '#94a3b8' }}>Last safe test</div>
+            <div style={{ marginTop: 4, fontSize: 12, color: lastTest.triggered ? '#fbbf24' : '#e2e8f0', fontWeight: 700 }}>
+              {lastTest.triggered ? 'Alert would fire' : 'No alert would fire'}
+            </div>
+            <div style={{ marginTop: 3, fontSize: 11, color: '#94a3b8' }}>{lastTest.message}</div>
+          </div>
+        )}
+        {activeGraphId && (
+          <div style={{ marginTop: 10, padding: 10, borderRadius: 6, border: '1px solid #10b981', background: '#10b98118' }}>
+            <div style={{ fontSize: 12, color: '#6ee7b7', fontWeight: 800 }}>● LIVE RULE IS RUNNING</div>
+            <div style={{ marginTop: 5, fontSize: 11, lineHeight: 1.45, color: '#94a3b8' }}>
+              Incoming readings are being checked now. If temperature reaches the rule limit, open the Live Dashboard to see the alert.
+            </div>
+          </div>
+        )}
         {status && <p style={{ marginTop: 12, fontSize: 12, color: '#94a3b8' }}>{status}</p>}
       </aside>
       <div style={{ flex: 1 }}>
