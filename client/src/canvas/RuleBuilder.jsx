@@ -15,13 +15,13 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import RuleNode from '../nodes/RuleNode';
-import { serializeGraph } from '../serialization/graph';
+import { deserializeGraph, serializeGraph } from '../serialization/graph';
 
 const palette = [
-  { type: 'source', label: 'Telemetry Source', config: { field: 'temperature' } },
-  { type: 'math', label: 'Scale Value', config: { field: 'temperature', factor: 1 } },
-  { type: 'filter', label: 'Temperature Filter', config: { field: 'temperature', minimum: 80, maximum: 150 } },
-  { type: 'action', label: 'SMS / Webhook Alert', config: { field: 'temperature', threshold: 85, message: 'High temperature alert' } },
+  { type: 'source', label: 'Telemetry Source', description: 'Starts with an incoming sensor reading.', config: { field: 'temperature' } },
+  { type: 'math', label: 'Scale Value', description: 'Changes a number, such as converting or multiplying it.', config: { field: 'temperature', factor: 1 } },
+  { type: 'filter', label: 'Temperature Filter', description: 'Keeps only readings between the chosen minimum and maximum.', config: { field: 'temperature', minimum: 80, maximum: 150 } },
+  { type: 'action', label: 'SMS / Webhook Alert', description: 'Creates an alert when the rule reaches this final node.', config: { field: 'temperature', threshold: 85, message: 'High temperature alert' } },
 ];
 
 export default function RuleBuilder() {
@@ -33,6 +33,22 @@ export default function RuleBuilder() {
   const [activeEdges, setActiveEdges] = useState(new Set());
   const [activeGraphId, setActiveGraphId] = useState(null);
   const nodeTypes = useMemo(() => ({ rule: RuleNode }), []);
+
+  const validateCanvasBeforeUse = () => {
+    const sourceNodes = nodes.filter((node) => node.data.ruleType === 'source');
+    const filterNodes = nodes.filter((node) => node.data.ruleType === 'filter');
+    const actionNodes = nodes.filter((node) => node.data.ruleType === 'action');
+
+    if (nodes.length === 0) return 'Add nodes from the Node Library, then connect them from left to right.';
+    if (sourceNodes.length === 0) return 'Add one Telemetry Source. It is the starting point for incoming sensor data.';
+    if (filterNodes.length === 0) return 'Add a Temperature Filter to choose which readings should continue.';
+    if (actionNodes.length === 0) return 'Add an SMS / Webhook Alert so the rule has a final action.';
+
+    const sourceConnected = edges.some((edge) => sourceNodes.some((node) => node.id === edge.source));
+    if (!sourceConnected) return 'Connect the right dot on Telemetry Source to the left dot on Temperature Filter.';
+    if (edges.length < 2) return 'Connect Temperature Filter to SMS / Webhook Alert using their dots.';
+    return '';
+  };
 
   useEffect(() => () => {
     if (!activeGraphIdRef.current) return;
@@ -63,7 +79,44 @@ export default function RuleBuilder() {
     [setEdges]
   );
 
+  const clearCanvas = () => {
+    setNodes([]);
+    setEdges([]);
+    setActiveEdges(new Set());
+    setStatus('Canvas cleared. Add a Source, a Filter, and an Alert.');
+  };
+
+  const loadExampleRule = async () => {
+    setStatus('Loading the example rule...');
+    try {
+      const response = await fetch('http://localhost:4000/api/graphs/sample');
+      const graph = await response.json();
+      if (!response.ok) throw new Error(graph.message || 'Could not load the example rule');
+
+      const labelByType = Object.fromEntries(palette.map((item) => [item.type, item.label]));
+      const example = deserializeGraph({
+        ...graph,
+        nodes: graph.nodes.map((node) => ({
+          ...node,
+          position: { x: 80 + graph.nodes.findIndex((item) => item.id === node.id) * 220, y: 130 },
+          config: { ...node.config, label: labelByType[node.type] },
+        })),
+      });
+      setNodes(example.nodes);
+      setEdges(example.edges);
+      setActiveEdges(new Set());
+      setStatus('Example loaded: Source → Filter → Alert. Drag from a dot on the right to a dot on the left.');
+    } catch (error) {
+      setStatus(error.message);
+    }
+  };
+
   const compileGraph = async () => {
+    const guidance = validateCanvasBeforeUse();
+    if (guidance) {
+      setStatus(guidance);
+      return;
+    }
     setStatus('Compiling...');
     setActiveEdges(new Set());
     try {
@@ -86,6 +139,11 @@ export default function RuleBuilder() {
   };
 
   const executeGraph = async () => {
+    const guidance = validateCanvasBeforeUse();
+    if (guidance) {
+      setStatus(guidance);
+      return;
+    }
     setStatus('Executing test telemetry...');
     try {
       // Sample values let a beginner test a rule without waiting for a simulator or real sensor.
@@ -105,6 +163,11 @@ export default function RuleBuilder() {
   };
 
   const activateGraph = async () => {
+    const guidance = validateCanvasBeforeUse();
+    if (guidance) {
+      setStatus(guidance);
+      return;
+    }
     setStatus('Activating live rule...');
     try {
       const response = await fetch('http://localhost:4000/api/graphs/activate', {
@@ -156,24 +219,43 @@ export default function RuleBuilder() {
     <div style={{ height: 'calc(100vh - 54px)', display: 'flex', background: '#07111f' }}>
       <aside style={{ width: 210, padding: 16, borderRight: '1px solid #1e293b', color: '#cbd5e1' }}>
         <h3 style={{ marginTop: 0 }}>Node Library</h3>
+        <p style={{ fontSize: 12, lineHeight: 1.5, color: '#94a3b8' }}>
+          Build left to right: add Source, Filter, and Alert. Drag from a node's right dot to the next node's left dot.
+        </p>
+        <button
+          onClick={loadExampleRule}
+          style={{ width: '100%', marginBottom: 8, padding: 10, border: '1px solid #38bdf8', borderRadius: 6, background: '#38bdf815', color: '#38bdf8', cursor: 'pointer', fontWeight: 700 }}
+        >
+          Load Example Rule
+        </button>
+        <button
+          onClick={clearCanvas}
+          style={{ width: '100%', marginBottom: 8, padding: 8, border: '1px solid #334155', borderRadius: 6, background: 'transparent', color: '#94a3b8', cursor: 'pointer' }}
+        >
+          Clear Canvas
+        </button>
         {palette.map((item) => (
-          <button
-            key={item.type}
-            onClick={() => addNode(item)}
-            style={{
-              width: '100%',
-              marginBottom: 8,
-              padding: '10px',
-              borderRadius: 6,
-              border: '1px solid #334155',
-              background: '#111c2e',
-              color: '#e2e8f0',
-              cursor: 'pointer',
-              textAlign: 'left',
-            }}
-          >
-            + {item.label}
-          </button>
+          <div key={item.type} style={{ marginBottom: 8 }}>
+            <button
+              onClick={() => addNode(item)}
+              title={item.description}
+              style={{
+                width: '100%',
+                padding: '10px',
+                borderRadius: 6,
+                border: '1px solid #334155',
+                background: '#111c2e',
+                color: '#e2e8f0',
+                cursor: 'pointer',
+                textAlign: 'left',
+              }}
+            >
+              + {item.label}
+            </button>
+            <p style={{ margin: '4px 2px 0', fontSize: 11, lineHeight: 1.35, color: '#7f93aa' }}>
+              {item.description}
+            </p>
+          </div>
         ))}
         <button onClick={compileGraph} style={{ width: '100%', marginTop: 12, padding: 10, border: 0, borderRadius: 6, background: '#38bdf8', color: '#07111f', cursor: 'pointer', fontWeight: 700 }}>
           Compile Graph

@@ -179,7 +179,10 @@ function compileGraphToStream(graph, telemetry$) {
     }
 
     if (sources.length === 0) {
-      throw new Error(`Non-source node ${node.id} must have an incoming edge.`);
+      throw new Error(
+        `The ${node.type} node "${node.id}" has no connection. ` +
+        `Drag a line from the right dot of the previous node to this node's left dot.`
+      );
     }
 
     const parents = sources.map((sourceId) => streams.get(sourceId));
