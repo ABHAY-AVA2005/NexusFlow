@@ -9,8 +9,15 @@ const { createRuleEngine } = require('../engine/ruleEngine');
 const { activateRuleGraph, deactivateRuleGraph } = require('../engine/liveRuleRegistry');
 const { dispatchActionAlert } = require('../alerting/alertService');
 const { broadcastAlert } = require('../ws/telemetryServer');
+const SavedGraph = require('../models/graph');
+const mongoose = require('mongoose');
 
 const router = express.Router();
+
+router.get('/active', (req, res) => {
+  const { listActiveRules } = require('../engine/liveRuleRegistry');
+  res.json({ ok: true, rules: listActiveRules() });
+});
 
 router.get('/sample', (req, res) => {
   res.json({
@@ -35,19 +42,44 @@ router.post('/compile', (req, res) => {
   }
 });
 
-router.post('/activate', (req, res) => {
+router.post('/activate', async (req, res) => {
   try {
     const result = activateRuleGraph(req.body || {});
+    if (mongoose.connection.readyState === 1) {
+      try {
+        await SavedGraph.findOneAndUpdate(
+          { graphId: result.graphId },
+          {
+            graphId: result.graphId,
+            name: req.body.name || 'Untitled live rule',
+            nodes: req.body.nodes || [],
+            edges: req.body.edges || [],
+            active: true,
+          },
+          { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
+      } catch (error) {
+        console.error(`Could not persist rule "${result.graphId}": ${error.message}`);
+      }
+    }
     res.status(201).json({ ok: true, ...result });
   } catch (error) {
     res.status(400).json({ ok: false, message: error.message });
   }
 });
 
-router.delete('/activate/:graphId', (req, res) => {
+router.delete('/activate/:graphId', async (req, res) => {
   const stopped = deactivateRuleGraph(req.params.graphId);
   if (!stopped) {
     return res.status(404).json({ ok: false, message: 'Active rule graph not found.' });
+  }
+
+  if (mongoose.connection.readyState === 1) {
+    try {
+      await SavedGraph.deleteOne({ graphId: req.params.graphId });
+    } catch (error) {
+      console.error(`Could not delete persisted rule "${req.params.graphId}": ${error.message}`);
+    }
   }
 
   return res.json({ ok: true, graphId: req.params.graphId });

@@ -1,16 +1,16 @@
 /**
  * @module server/models/graph
- * @description Represents a visual graph while it is held in memory. It provides a small
- * document-style interface before or instead of MongoDB graph persistence.
+ * @description Persists visual rule graphs so active rules can be restored after a
+ * backend restart.
  */
-class GraphModel {
-  constructor({ id, name, nodes = [], edges = [] }) {
-    this.id = id || `graph-${Date.now()}`;
-    this.name = name || 'Untitled graph';
-    this.nodes = nodes;
-    this.edges = edges;
-    this.createdAt = new Date().toISOString();
-  }
-}
+const mongoose = require('mongoose');
 
-module.exports = GraphModel;
+const graphSchema = new mongoose.Schema({
+  graphId: { type: String, required: true, unique: true, index: true },
+  name: { type: String, required: true, trim: true },
+  nodes: { type: Array, required: true },
+  edges: { type: Array, required: true, default: [] },
+  active: { type: Boolean, required: true, default: true },
+}, { timestamps: true });
+
+module.exports = mongoose.models.VisualRule || mongoose.model('VisualRule', graphSchema);

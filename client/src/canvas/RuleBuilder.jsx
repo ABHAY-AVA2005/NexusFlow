@@ -17,6 +17,8 @@ import 'reactflow/dist/style.css';
 import RuleNode from '../nodes/RuleNode';
 import { deserializeGraph, serializeGraph } from '../serialization/graph';
 
+const CANVAS_STORAGE_KEY = 'nexusflow.visual-rule-canvas';
+
 const palette = [
   { type: 'source', label: 'Telemetry Source', description: 'Starts with an incoming sensor reading.', config: { field: 'temperature', machineId: 'all' } },
   { type: 'math', label: 'Scale Value', description: 'Changes a number, such as converting or multiplying it.', config: { field: 'temperature', factor: 1 } },
@@ -40,7 +42,46 @@ export default function RuleBuilder() {
   const [liveLastReading, setLiveLastReading] = useState(null);
   const [ruleName, setRuleName] = useState('High temperature rule');
   const [activeRules, setActiveRules] = useState([]);
+  const [canvasHydrated, setCanvasHydrated] = useState(false);
   const nodeTypes = useMemo(() => ({ rule: RuleNode }), []);
+
+  useEffect(() => {
+    try {
+      const savedCanvas = JSON.parse(localStorage.getItem(CANVAS_STORAGE_KEY) || 'null');
+      if (savedCanvas) {
+        const restored = deserializeGraph(savedCanvas.graph);
+        setNodes(restored.nodes);
+        setEdges(restored.edges);
+        setRuleName(savedCanvas.ruleName || 'High temperature rule');
+        setStatus('Restored your saved canvas from this browser.');
+      }
+    } catch (error) {
+      console.error('Could not restore the saved visual rule canvas:', error);
+    } finally {
+      setCanvasHydrated(true);
+    }
+  }, [setEdges, setNodes]);
+
+  useEffect(() => {
+    if (!canvasHydrated) return;
+    localStorage.setItem(CANVAS_STORAGE_KEY, JSON.stringify({
+      ruleName,
+      graph: serializeGraph(nodes, edges),
+    }));
+  }, [canvasHydrated, edges, nodes, ruleName]);
+
+  useEffect(() => {
+    fetch('http://localhost:4000/api/graphs/active')
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error('Could not load saved live rules')))
+      .then((payload) => {
+        setActiveRules((payload.rules || []).map((rule) => ({
+          graphId: rule.graphId,
+          name: rule.name,
+          machineId: rule.machineId,
+        })));
+      })
+      .catch((error) => console.error(error.message));
+  }, []);
 
   useEffect(() => {
     if (!activeGraphId) {

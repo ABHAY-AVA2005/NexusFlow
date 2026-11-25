@@ -13,6 +13,8 @@ const { connectDB } = require('./config/db');
 const { startTelemetryWebSocketServer } = require('./ws/telemetryServer');
 const { notFoundHandler, errorHandler } = require('./middleware/errorHandler');
 const mongoose = require('mongoose');
+const SavedGraph = require('./models/graph');
+const { activateRuleGraph } = require('./engine/liveRuleRegistry');
 
 const app = express();
 
@@ -32,6 +34,21 @@ app.use(errorHandler);
 async function startServer() {
   const connection = await connectDB();
   console.log(`MongoDB connected: ${connection.connection.name}`);
+
+  const savedRules = await SavedGraph.find({ active: true }).lean();
+  for (const savedRule of savedRules) {
+    try {
+      activateRuleGraph({
+        id: savedRule.graphId,
+        name: savedRule.name,
+        nodes: savedRule.nodes,
+        edges: savedRule.edges,
+      });
+      console.log(`Restored live rule: ${savedRule.name} (${savedRule.graphId})`);
+    } catch (error) {
+      console.error(`Could not restore live rule "${savedRule.name}": ${error.message}`);
+    }
+  }
 
   const server = app.listen(config.port, () => {
     console.log(`NexusFlow server listening on http://localhost:${config.port}`);

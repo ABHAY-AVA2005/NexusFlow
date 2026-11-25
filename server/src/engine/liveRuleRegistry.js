@@ -63,8 +63,9 @@ function createLiveRuleRegistry({
       subscription,
       name: graph.name || 'Untitled live rule',
       machineId,
+      graph,
     });
-    return { graphId, compiled };
+    return { graphId, compiled, name: graph.name || 'Untitled live rule', machineId };
   }
 
   function deactivateRuleGraph(graphId) {
@@ -89,10 +90,20 @@ function createLiveRuleRegistry({
     }
   }
 
+  function listActiveRules() {
+    return Array.from(activeRules.entries()).map(([graphId, rule]) => ({
+      graphId,
+      name: rule.name,
+      machineId: rule.machineId,
+      graph: rule.graph,
+    }));
+  }
+
   return {
     activateRuleGraph,
     deactivateRuleGraph,
     processTelemetry,
+    listActiveRules,
   };
 }
 
