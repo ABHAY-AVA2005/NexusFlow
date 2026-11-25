@@ -77,3 +77,11 @@
 - **Implemented:** Plotted dynamic red anomaly marker indicators on the chart canvas corresponding to exact timestamp threshold violations.
   **Reason/tools:** Gives operators instant visual correlation between raw telemetry spikes and rule trigger events.
 - **Verified:** Tested chart rendering in browser; confirmed smooth SMA curve tracking alongside raw temperature telemetry.
+
+## 2026-11-25
+
+- **Implemented:** Created floating `AlertToast.jsx` notification banner with animated 6-second progress countdown and manual dismiss controls.
+  **Reason/tools:** Alerts plant operators immediately upon high-temperature or vibration breaches without requiring them to watch the bottom alerts feed.
+- **Implemented:** Integrated toast banner into `TelemetryDashboard.jsx`, synchronizing notification dispatch with critical threshold breaches.
+  **Reason/tools:** Provides non-intrusive, auto-dismissing visual warning banners for active safety violations.
+- **Verified:** Tested in browser; verified toast slides in smoothly on anomaly, displays accurate machine metrics, and auto-dismisses upon timer completion.

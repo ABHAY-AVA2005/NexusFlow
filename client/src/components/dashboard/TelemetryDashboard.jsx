@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTelemetrySocket } from '../../hooks/useTelemetrySocket';
 import MetricsCard from './MetricsCard';
 import SensorChart from './SensorChart';
 import AlertsPanel from './AlertsPanel';
+import AlertToast from './AlertToast';
 
 export default function TelemetryDashboard() {
   const {
@@ -11,10 +12,18 @@ export default function TelemetryDashboard() {
     connectionStatus,
     isPaused,
     togglePause,
-    manualReconnect,
     sensorSummary,
     clearAlerts,
   } = useTelemetrySocket();
+
+  const [activeToast, setActiveToast] = useState(null);
+
+  // Trigger floating toast when a new critical alert is logged
+  useEffect(() => {
+    if (alerts.length > 0 && alerts[0].severity === 'HIGH') {
+      setActiveToast(alerts[0]);
+    }
+  }, [alerts.length]);
 
   const activeSensors = Object.keys(sensorSummary);
 
@@ -34,6 +43,9 @@ export default function TelemetryDashboard() {
 
   return (
     <div style={{ padding: '24px', background: '#07111f', minHeight: '100vh', color: '#e0e1dd' }}>
+      {/* Floating Critical Alert Toast Banner */}
+      <AlertToast alert={activeToast} onDismiss={() => setActiveToast(null)} />
+
       {/* Top Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
         <div>
@@ -66,8 +78,6 @@ export default function TelemetryDashboard() {
 
           {/* Connection State Badge */}
           <div
-            onClick={connectionStatus !== 'CONNECTED' ? manualReconnect : undefined}
-            title={connectionStatus !== 'CONNECTED' ? 'Click to reconnect' : ''}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -77,7 +87,6 @@ export default function TelemetryDashboard() {
               border: `1px solid ${status.color}44`,
               padding: '6px 12px',
               borderRadius: '8px',
-              cursor: connectionStatus !== 'CONNECTED' ? 'pointer' : 'default',
             }}
           >
             <span
