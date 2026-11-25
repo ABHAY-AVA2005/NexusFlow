@@ -35,7 +35,35 @@ export default function RuleBuilder() {
   const [selectedItem, setSelectedItem] = useState(null);
   const [lastTest, setLastTest] = useState(null);
   const [step, setStep] = useState(1);
+  const [testTemperature, setTestTemperature] = useState(92);
+  const [liveMatches, setLiveMatches] = useState([]);
+  const [liveLastReading, setLiveLastReading] = useState(null);
   const nodeTypes = useMemo(() => ({ rule: RuleNode }), []);
+
+  useEffect(() => {
+    if (!activeGraphId) {
+      setLiveMatches([]);
+      setLiveLastReading(null);
+      return;
+    }
+
+    const socket = new WebSocket('ws://localhost:8080');
+    socket.onmessage = (event) => {
+      try {
+        const message = JSON.parse(event.data);
+        if (message.type === 'alert') {
+          setLiveMatches((current) => [
+            message.alert,
+            ...current.slice(0, 9),
+          ]);
+        }
+        if (!message.type) {
+          setLiveLastReading(message);
+        }
+      } catch {}
+    };
+    return () => socket.close();
+  }, [activeGraphId]);
 
   const validateCanvasBeforeUse = () => {
     const sourceNodes = nodes.filter((node) => node.data.ruleType === 'source');
@@ -119,6 +147,24 @@ export default function RuleBuilder() {
     }
 
     setSelectedItem(null);
+  };
+
+  const updateSelectedNodeConfig = (key, value) => {
+    if (!selectedItem || selectedItem.type !== 'node') return;
+
+    setNodes((current) => current.map((node) => {
+      if (node.id !== selectedItem.id) return node;
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          config: {
+            ...node.data.config,
+            [key]: Number(value),
+          },
+        },
+      };
+    }));
   };
 
   useEffect(() => {
@@ -205,7 +251,7 @@ export default function RuleBuilder() {
       const response = await fetch('http://localhost:4000/api/graphs/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ graph, telemetry: { temperature: 92, vibration: 6.2 } }),
+        body: JSON.stringify({ graph, telemetry: { temperature: testTemperature, vibration: 6.2 } }),
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.message || 'Graph execution failed');
@@ -214,15 +260,15 @@ export default function RuleBuilder() {
       setLastTest(payload.result ? {
         triggered: true,
         message: payload.result.message || 'High temperature alert',
-        temperature: 92,
+        temperature: testTemperature,
       } : {
         triggered: false,
-        message: 'No alert: 92°C did not satisfy this rule.',
-        temperature: 92,
+        message: `No alert: ${testTemperature}°C did not satisfy this rule.`,
+        temperature: testTemperature,
       });
       setStatus(payload.result
-        ? 'Step 2 complete: the test rule triggered. Its alert message is “High temperature alert.”'
-        : 'Step 2 complete: the test reading did not trigger. The rule and filter settings are ready to adjust.');
+        ? `Step 2 complete: ${testTemperature}°C triggered an alert. The rule would show “${payload.result.message || 'High temperature alert'}”.`
+        : `Step 2 complete: ${testTemperature}°C did not trigger. Check the filter range or action threshold.`);
     } catch (error) {
       setStatus(error.message);
     }
@@ -246,6 +292,8 @@ export default function RuleBuilder() {
 
       activeGraphIdRef.current = payload.graphId;
       setActiveGraphId(payload.graphId);
+      setLiveMatches([]);
+      setLiveLastReading(null);
       setActiveEdges(new Set(edges.map((edge) => edge.id)));
       setStep(3);
       setStatus('Step 3 active: this rule is listening to live telemetry. Keep this page open and watch for a red alert on the dashboard.');
@@ -281,6 +329,10 @@ export default function RuleBuilder() {
       ? { stroke: '#38bdf8', strokeWidth: 4, filter: 'drop-shadow(0 0 7px #38bdf8)' }
       : undefined,
   }));
+
+  const selectedNode = selectedItem?.type === 'node'
+    ? nodes.find((node) => node.id === selectedItem.id)
+    : null;
 
   return (
     <div style={{ height: 'calc(100vh - 54px)', display: 'flex', background: '#07111f' }}>
@@ -329,6 +381,39 @@ export default function RuleBuilder() {
             >
               Delete Selected
             </button>
+            {selectedNode?.data.ruleType === 'filter' && (
+              <div style={{ marginTop: 10 }}>
+                <label style={{ display: 'block', fontSize: 11, color: '#cbd5e1', marginBottom: 6 }}>
+                  Minimum °C
+                  <input
+                    type="number"
+                    value={selectedNode.data.config.minimum ?? 80}
+                    onChange={(event) => updateSelectedNodeConfig('minimum', event.target.value)}
+                    style={{ width: '100%', marginTop: 4, padding: 7, borderRadius: 5, border: '1px solid #334155', background: '#07111f', color: 'white' }}
+                  />
+                </label>
+                <label style={{ display: 'block', fontSize: 11, color: '#cbd5e1' }}>
+                  Maximum °C
+                  <input
+                    type="number"
+                    value={selectedNode.data.config.maximum ?? 150}
+                    onChange={(event) => updateSelectedNodeConfig('maximum', event.target.value)}
+                    style={{ width: '100%', marginTop: 4, padding: 7, borderRadius: 5, border: '1px solid #334155', background: '#07111f', color: 'white' }}
+                  />
+                </label>
+              </div>
+            )}
+            {selectedNode?.data.ruleType === 'action' && (
+              <label style={{ display: 'block', marginTop: 10, fontSize: 11, color: '#cbd5e1' }}>
+                Alert when temperature is at least
+                <input
+                  type="number"
+                  value={selectedNode.data.config.threshold ?? 85}
+                  onChange={(event) => updateSelectedNodeConfig('threshold', event.target.value)}
+                  style={{ width: '100%', marginTop: 4, padding: 7, borderRadius: 5, border: '1px solid #334155', background: '#07111f', color: 'white' }}
+                />
+              </label>
+            )}
           </div>
         )}
         {palette.map((item) => (
@@ -360,7 +445,7 @@ export default function RuleBuilder() {
           </div>
           {[
             { number: 1, label: 'Check the rule', detail: 'Verifies that every node is connected.' },
-            { number: 2, label: 'Try 92°C safely', detail: 'Uses sample data; no live machine changes.' },
+            { number: 2, label: 'Try a temperature safely', detail: 'Enter a test value below. It does not change any live machine.' },
             { number: 3, label: 'Watch live readings', detail: 'Starts this rule against real incoming telemetry.' },
           ].map((item) => (
             <div
@@ -400,8 +485,17 @@ export default function RuleBuilder() {
         <button onClick={compileGraph} style={{ width: '100%', marginTop: 12, padding: 10, border: 0, borderRadius: 6, background: '#38bdf8', color: '#07111f', cursor: 'pointer', fontWeight: 700 }}>
           1. Check My Rule
         </button>
+        <label style={{ display: 'block', marginTop: 8, fontSize: 11, color: '#94a3b8' }}>
+          Test temperature (°C)
+          <input
+            type="number"
+            value={testTemperature}
+            onChange={(event) => setTestTemperature(Number(event.target.value))}
+            style={{ width: '100%', marginTop: 4, padding: 8, borderRadius: 6, border: '1px solid #334155', background: '#07111f', color: 'white' }}
+          />
+        </label>
         <button onClick={executeGraph} style={{ width: '100%', marginTop: 8, padding: 10, border: '1px solid #38bdf8', borderRadius: 6, background: 'transparent', color: '#38bdf8', cursor: 'pointer' }}>
-          2. Test with 92°C
+          2. Test This Temperature
         </button>
         <button
           onClick={activeGraphId ? deactivateGraph : activateGraph}
@@ -424,6 +518,22 @@ export default function RuleBuilder() {
             <div style={{ marginTop: 5, fontSize: 11, lineHeight: 1.45, color: '#94a3b8' }}>
               Incoming readings are being checked now. If temperature reaches the rule limit, open the Live Dashboard to see the alert.
             </div>
+            {liveLastReading && (
+              <div style={{ marginTop: 7, paddingTop: 7, borderTop: '1px solid #10b98144', fontSize: 11, color: '#cbd5e1' }}>
+                Latest reading: {liveLastReading.sensorId || liveLastReading.deviceId || 'sensor'} —
+                {' '}{liveLastReading.temperature}°C
+              </div>
+            )}
+            <div style={{ marginTop: 7, fontSize: 12, color: liveMatches.length ? '#fbbf24' : '#94a3b8', fontWeight: 700 }}>
+              {liveMatches.length
+                ? `${liveMatches.length} live alert${liveMatches.length === 1 ? '' : 's'} triggered`
+                : 'No live alerts yet'}
+            </div>
+            {liveMatches.slice(0, 3).map((match, index) => (
+              <div key={`${match.timestamp || index}-${index}`} style={{ marginTop: 5, fontSize: 10, color: '#fecaca' }}>
+                {match.message || 'High temperature alert'}
+              </div>
+            ))}
           </div>
         )}
         {status && <p style={{ marginTop: 12, fontSize: 12, color: '#94a3b8' }}>{status}</p>}

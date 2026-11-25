@@ -27,12 +27,16 @@ function RuleNode({ data }) {
       color: '#e5eef8',
       boxShadow: `0 0 12px ${color}33`,
     }}>
-      {data.ruleType !== 'source' && <Handle type="target" position={Position.Left} />}
+      {data.ruleType !== 'source' && (
+        <Handle type="target" position={Position.Left} title="Incoming connection dot" />
+      )}
       <div style={{ color, fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>
         {data.ruleType}
       </div>
       <strong style={{ display: 'block', marginTop: 4, fontSize: 13 }}>{data.label}</strong>
-      {data.ruleType !== 'action' && <Handle type="source" position={Position.Right} />}
+      {data.ruleType !== 'action' && (
+        <Handle type="source" position={Position.Right} title="Outgoing connection dot" />
+      )}
     </div>
   );
 }
