@@ -69,3 +69,11 @@
 - **Implemented:** Updated `docs/test-report.md` with official 7,921 writes/sec ingestion benchmark figures, P95 latency metrics (11.0ms), and 12-suite automated unit test results.
   **Reason/tools:** Compiles complete technical evidence for the Mid-Project Review audit demonstration and documentation criteria.
 - **Verified:** Confirmed all markdown tables, benchmark numbers, and demo CLI commands execute cleanly.
+
+## 2026-11-24
+
+- **Implemented:** Added real-time 5-point Simple Moving Average (`SMA-5`) signal filter calculation and interactive toggle (`● Moving Avg (SMA-5)`) in `SensorChart.jsx`.
+  **Reason/tools:** Smoothes high-frequency industrial noise to visually mirror the backend RxJS moving-average operator node on the dashboard.
+- **Implemented:** Plotted dynamic red anomaly marker indicators on the chart canvas corresponding to exact timestamp threshold violations.
+  **Reason/tools:** Gives operators instant visual correlation between raw telemetry spikes and rule trigger events.
+- **Verified:** Tested chart rendering in browser; confirmed smooth SMA curve tracking alongside raw temperature telemetry.
