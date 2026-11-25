@@ -1,6 +1,7 @@
 /**
  * @module server/config/db
- * @description Creates and manages the MongoDB connection used by the backend.
+ * @description Opens the MongoDB connection and provides the reusable database settings
+ * needed by the rest of the server. The server waits for this connection before starting.
  */
 const mongoose = require('mongoose');
 const config = require('./env');

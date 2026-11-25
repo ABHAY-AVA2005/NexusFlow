@@ -1,17 +1,14 @@
 /**
  * @module simulator/simulator
- * @description NexusFlow hardware telemetry generator with profiles, sensors, and HTTP ingestion.
- *
- * NexusFlow Hardware Telemetry Simulator
- * Developed by Abhishek (Dashboard, Simulator & QA Engineer)
- * 
- * Nov 17 Update: Added CLI argument parsing, preset operating profiles,
- * and custom sensor selection flags.
+ * @description Creates realistic factory sensor readings and sends each reading to the
+ * backend telemetry API. This is a mock source used while the real industrial hardware
+ * is not connected.
  */
 
 const http = require('http');
 
-// Predefined industrial operating profiles
+// A profile is a preset collection of settings. "Stress" sends more anomalies, while
+// "normal" sends mostly healthy readings. Choosing a profile avoids long CLI commands.
 const PROFILES = {
   normal: {
     anomalyRate: 0.05,
@@ -30,7 +27,8 @@ const PROFILES = {
   },
 };
 
-// Parse command-line flags (--interval, --anomaly, --profile, --sensors)
+// Command-line settings override environment values and profile defaults. For example,
+// --interval 500 sends a reading every 500 milliseconds.
 function parseArgs() {
   const args = process.argv.slice(2);
   const config = {
@@ -83,11 +81,15 @@ const ACTIVE_SENSORS = config.selectedSensors
 const EFFECTIVE_SENSORS = ACTIVE_SENSORS.length > 0 ? ACTIVE_SENSORS : ALL_SENSORS;
 
 function randomValue(min, max, decimals = 2) {
+  // Math.random() starts in the range 0 to 1. Re-scaling it keeps generated values
+  // within the sensor's realistic operating range.
   const val = Math.random() * (max - min) + min;
   return Number(val.toFixed(decimals));
 }
 
 function generateTelemetry(sensor, customAnomalyRate = config.anomalyRate) {
+  // Decide once whether this reading is normal or abnormal. All abnormal measurements
+  // are generated around unsafe ranges so the dashboard and alert rules can be tested.
   const isAnomaly = Math.random() < customAnomalyRate;
 
   const temperature = isAnomaly
@@ -126,6 +128,7 @@ function generateTelemetry(sensor, customAnomalyRate = config.anomalyRate) {
 
 function postTelemetry(data) {
   try {
+    // URL parsing separates the host, port, and API path from the configured endpoint.
     const parsed = new URL(config.targetUrl);
     if (parsed.protocol !== 'http:') {
       console.error(`Unsupported telemetry URL protocol: ${parsed.protocol}`);

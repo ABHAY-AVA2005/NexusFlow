@@ -1,6 +1,7 @@
 /**
  * @module server/controllers/telemetry
- * @description Handles telemetry ingestion, persistence, live rules, and broadcast dispatch.
+ * @description Receives validated sensor readings, saves each reading to MongoDB, asks
+ * active rules to evaluate it, and sends a live copy to every connected dashboard.
  */
 const Telemetry = require('../models/telemetry.model');
 const { broadcastTelemetry } = require('../ws/telemetryServer');

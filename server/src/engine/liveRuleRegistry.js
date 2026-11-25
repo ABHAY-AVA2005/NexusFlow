@@ -1,6 +1,8 @@
 /**
  * @module server/engine/liveRuleRegistry
- * @description Tracks active rule graphs and safely evaluates live telemetry against them.
+ * @description Keeps a list of rules that are currently running. Every new telemetry
+ * reading is sent through all active rules, while alerts are emitted only for rules
+ * that match the incoming values.
  */
 const { randomUUID } = require('crypto');
 const { Subject } = require('rxjs');

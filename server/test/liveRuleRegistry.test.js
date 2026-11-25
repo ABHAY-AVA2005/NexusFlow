@@ -1,6 +1,7 @@
 /**
  * @module server/test/liveRuleRegistry
- * @description QA coverage for live rule activation, evaluation, and deactivation.
+ * @description QA checks for starting, running, and stopping live rules. These tests
+ * protect the most important behavior: incoming telemetry must reach active rules only.
  */
 const test = require('node:test');
 const assert = require('node:assert/strict');

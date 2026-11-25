@@ -1,6 +1,8 @@
 /**
  * @module client/hooks/useTelemetrySocket
- * @description Maintains the WebSocket connection and exposes live telemetry state to React components.
+ * @description React hook that manages the WebSocket connection. It opens the connection
+ * once, stores incoming readings, reconnects after a dropped connection, and cleans up
+ * when the dashboard is closed.
  */
 import { useState, useEffect, useRef } from 'react';
 

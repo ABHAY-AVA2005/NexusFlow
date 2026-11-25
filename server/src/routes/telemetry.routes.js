@@ -1,6 +1,7 @@
 /**
  * @module server/routes/telemetry
- * @description Defines routes for single-record and batch telemetry ingestion.
+ * @description Maps HTTP URLs to telemetry controllers. This file explains what happens
+ * at the single-reading and batch-reading endpoints without performing database work itself.
  */
 const express = require('express');
 const router = express.Router();

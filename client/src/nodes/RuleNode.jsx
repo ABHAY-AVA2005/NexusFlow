@@ -1,6 +1,8 @@
 /**
  * @module client/nodes/RuleNode
- * @description Renders a visual rule graph node and its typed input/output handles.
+ * @description Draws one block in the rule canvas. The left handle accepts data from
+ * another node, the right handle sends data onward, and source/action nodes hide handles
+ * that would not make logical sense for their position in the pipeline.
  */
 import React, { memo } from 'react';
 import { Handle, Position } from 'reactflow';

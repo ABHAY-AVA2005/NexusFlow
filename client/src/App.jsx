@@ -1,6 +1,7 @@
 /**
  * @module client/App
- * @description Application shell that switches between live telemetry and the visual rule builder.
+ * @description The top-level page layout. It remembers which tab the user selected and
+ * switches between the live factory dashboard and the visual rule-building canvas.
  */
 import React, { useState } from 'react';
 import TelemetryDashboard from './components/dashboard/TelemetryDashboard';

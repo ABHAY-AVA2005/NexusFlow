@@ -1,6 +1,8 @@
 /**
  * @module server/compiler/nodeOperators
- * @description Maps visual rule node types to RxJS operators and validated numeric values.
+ * @description Connects visual rule node types to small RxJS operations. These helpers
+ * read one telemetry field, perform a math or filter operation, and optionally report
+ * an alert result to the next node.
  */
 const { filter, map } = require('rxjs/operators');
 

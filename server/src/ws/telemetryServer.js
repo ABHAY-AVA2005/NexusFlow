@@ -1,6 +1,7 @@
 /**
  * @module server/ws/telemetryServer
- * @description Provides WebSocket helpers for broadcasting telemetry and alert events.
+ * @description Opens the older WebSocket-compatible live channel and sends each sensor
+ * reading or alert to every connected browser. This complements the Socket.IO service.
  */
 const { WebSocket, WebSocketServer } = require('ws');
 

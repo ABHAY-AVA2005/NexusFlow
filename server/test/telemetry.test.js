@@ -1,6 +1,7 @@
 /**
  * @module server/test/telemetry
- * @description QA coverage for telemetry validation, persistence, and WebSocket broadcasting.
+ * @description Verifies the complete telemetry contract: bad readings are rejected, valid
+ * readings can be stored, and live dashboard clients receive broadcast copies.
  */
 const test = require('node:test');
 const assert = require('node:assert/strict');

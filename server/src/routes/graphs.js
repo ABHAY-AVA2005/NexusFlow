@@ -1,6 +1,7 @@
 /**
  * @module server/routes/graphs
- * @description Exposes graph compilation and live activation/deactivation endpoints.
+ * @description Maps visual-rule URLs to their handlers. It separates checking a graph,
+ * testing it once, and keeping it active for continuous incoming telemetry.
  */
 const express = require('express');
 const { compileGraph } = require('../compiler/graphCompiler');

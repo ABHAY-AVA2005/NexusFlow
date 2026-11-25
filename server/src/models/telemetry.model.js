@@ -1,6 +1,7 @@
 /**
  * @module server/models/telemetry
- * @description Defines the Mongoose telemetry document schema and collection mapping.
+ * @description Describes exactly how a sensor reading is stored in MongoDB. Field types,
+ * required values, and defaults here prevent inconsistent records from entering the database.
  */
 const mongoose = require('mongoose');
 

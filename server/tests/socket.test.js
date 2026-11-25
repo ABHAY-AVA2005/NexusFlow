@@ -1,6 +1,8 @@
 /**
  * @module server/tests/socket
- * @description End-to-end Socket.IO integration coverage for connection, validation, broadcast, and persistence.
+ * @description Runs a real local Socket.IO server and MongoDB integration. It proves that
+ * clients can connect, invalid readings receive errors, valid readings persist, and every
+ * connected dashboard sees the broadcast.
  *
  * Socket.IO Integration Test Script
  *

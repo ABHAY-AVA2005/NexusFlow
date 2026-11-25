@@ -1,6 +1,7 @@
 /**
  * @module client/dashboard/SensorChart
- * @description Renders streaming telemetry history with thresholds and sensor trend controls.
+ * @description Draws recent sensor readings as a line chart. It keeps only a manageable
+ * history window so the graph stays fast and does not grow forever in browser memory.
  */
 import React, { useState } from 'react';
 import {

@@ -1,6 +1,7 @@
 /**
  * @module server/test/graphCompiler
- * @description QA coverage for graph validation, ordering, compilation, and stream execution.
+ * @description Beginner-friendly QA checks that the rule compiler rejects bad graphs,
+ * orders nodes correctly, and produces results in the same way the live engine does.
  */
 const test = require('node:test');
 const assert = require('node:assert/strict');

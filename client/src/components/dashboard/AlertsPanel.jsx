@@ -1,6 +1,7 @@
 /**
  * @module client/dashboard/AlertsPanel
- * @description Displays active rule alerts and supports filtering and incident export.
+ * @description Displays rule-triggered alerts and explains their severity. Users can
+ * filter the list and download a JSON incident report for a maintenance review.
  */
 import React, { useState, useEffect } from 'react';
 

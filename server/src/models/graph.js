@@ -1,6 +1,7 @@
 /**
  * @module server/models/graph
- * @description Provides an in-memory graph document model for rule graph compatibility.
+ * @description Represents a visual graph while it is held in memory. It provides a small
+ * document-style interface before or instead of MongoDB graph persistence.
  */
 class GraphModel {
   constructor({ id, name, nodes = [], edges = [] }) {

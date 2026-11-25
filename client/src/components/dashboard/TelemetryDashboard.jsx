@@ -1,6 +1,7 @@
 /**
  * @module client/dashboard/TelemetryDashboard
- * @description Coordinates the live telemetry view, metrics, charts, and alert panel.
+ * @description Combines the dashboard's live metrics, trend charts, and alert list. It
+ * owns the shared sensor history so all dashboard cards show the same recent readings.
  */
 import React from 'react';
 import { useTelemetrySocket } from '../../hooks/useTelemetrySocket';

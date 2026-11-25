@@ -1,6 +1,8 @@
 /**
  * @module server/compiler/graphCompiler
- * @description Validates visual rule graphs and compiles them into ordered RxJS execution streams.
+ * @description Turns a visual rule graph into a safe, ordered RxJS stream pipeline.
+ * The graph is checked before execution so broken connections or node cycles cannot
+ * silently produce incorrect alert behavior.
  */
 const { merge, from } = require('rxjs');
 const { getNodeOperator } = require('./nodeOperators');
@@ -74,6 +76,8 @@ function validateGraph(graph) {
 function topologicalSort(graph) {
   validateGraph(graph);
 
+  // A node is ready only after all nodes that point to it have already run. This
+  // dependency order prevents a filter or action from executing before its source data.
   const adjacency = new Map();
   const indegree = new Map();
 

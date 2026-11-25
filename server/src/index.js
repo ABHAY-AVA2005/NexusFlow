@@ -1,6 +1,7 @@
 /**
  * @module server/src/index
- * @description Configures the Express application, middleware, routes, WebSocket services, and server lifecycle.
+ * @description The backend application setup. This file enables JSON requests, registers
+ * API routes, starts the HTTP/WebSocket servers, and closes them cleanly on shutdown.
  */
 const express = require('express');
 const cors = require('cors');

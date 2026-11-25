@@ -1,6 +1,7 @@
 /**
  * @module server/alerting/alertService
- * @description Dispatches rule alerts through webhooks and mock notification channels.
+ * @description Sends an alert to outside systems. A webhook is the real HTTP notification,
+ * while mock SMS/log delivery provides a safe local demo without calling a real provider.
  */
 const http = require('http');
 const https = require('https');

@@ -1,6 +1,8 @@
 /**
  * @module client/canvas/RuleBuilder
- * @description Provides the visual graph editor for creating, compiling, and activating rules.
+ * @description Builds visual rules by dragging nodes and drawing connections. The same
+ * graph can be validated by the server, tested with sample telemetry, or activated
+ * so it evaluates real sensor readings continuously.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactFlow, {
@@ -43,6 +45,7 @@ export default function RuleBuilder() {
   }, []);
 
   const addNode = (item) => {
+    // Give every canvas node a unique id and place new nodes in a predictable grid.
     const id = `${item.type}-${idRef.current++}`;
     setNodes((current) => [
       ...current,
@@ -64,6 +67,7 @@ export default function RuleBuilder() {
     setStatus('Compiling...');
     setActiveEdges(new Set());
     try {
+      // Serialization gives the server the same node and edge information shown in the canvas.
       const graph = serializeGraph(nodes, edges);
       const response = await fetch('http://localhost:4000/api/graphs/compile', {
         method: 'POST',
@@ -84,6 +88,7 @@ export default function RuleBuilder() {
   const executeGraph = async () => {
     setStatus('Executing test telemetry...');
     try {
+      // Sample values let a beginner test a rule without waiting for a simulator or real sensor.
       const graph = serializeGraph(nodes, edges);
       const response = await fetch('http://localhost:4000/api/graphs/execute', {
         method: 'POST',

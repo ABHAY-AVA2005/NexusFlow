@@ -1,6 +1,8 @@
 /**
  * @module server
- * @description Application entry point that starts the Express server when invoked directly.
+ * @description Small executable entry point for starting the backend. When imported by
+ * tests, it exports the app without opening a network port; when run directly, it starts
+ * MongoDB-backed Express and WebSocket services.
  */
 const app = require('./src/index');
 

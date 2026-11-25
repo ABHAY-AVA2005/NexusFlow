@@ -1,8 +1,10 @@
 /**
  * @module client/serialization/graph
- * @description Converts React Flow nodes and edges to and from the backend graph contract.
+ * @description Converts the visual canvas into the JSON format the backend understands,
+ * and converts saved JSON back into React Flow nodes and edges.
  */
 export function serializeGraph(nodes, edges) {
+  // Nodes describe the rule parts; edges describe how information flows between them.
   return {
     nodes: nodes.map((node) => ({
       id: node.id,

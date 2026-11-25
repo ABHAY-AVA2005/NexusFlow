@@ -1,6 +1,7 @@
 /**
  * @module server/config/env
- * @description Loads and normalizes environment configuration for the server.
+ * @description Reads settings from environment variables and supplies safe defaults.
+ * Keeping this in one file means MongoDB, ports, and URLs are not duplicated elsewhere.
  */
 const path = require('path');
 const dotenv = require('dotenv');

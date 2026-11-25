@@ -1,6 +1,8 @@
 /**
  * @module simulator/loadTest
- * @description Generates configurable ingestion load and writes benchmark statistics.
+ * @description Measures how quickly NexusFlow can accept telemetry. It creates realistic
+ * sensor records in batches, sends them to the ingestion API, and reports throughput,
+ * errors, and latency so developers can decide whether the server meets the benchmark.
  */
 const http = require('http');
 const fs = require('fs');

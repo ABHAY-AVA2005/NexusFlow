@@ -1,6 +1,7 @@
 /**
  * @module server/test/simulator
- * @description QA coverage for telemetry payload fields, sensor profiles, and anomaly boundaries.
+ * @description Verifies that fake sensor readings contain the expected fields and remain
+ * within realistic ranges, while also confirming that abnormal readings trigger alerts.
  */
 const assert = require('assert');
 const { describe, it } = require('node:test');

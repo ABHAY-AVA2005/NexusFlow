@@ -1,6 +1,7 @@
 /**
  * @module client/dashboard/MetricsCard
- * @description Renders a compact live sensor metric card with warning indicators.
+ * @description Shows the latest value for one sensor measurement in a simple card. It
+ * also adds a visual warning state when the reading crosses a configured limit.
  */
 import React, { useRef, useEffect } from 'react';
 

@@ -1,6 +1,8 @@
 /**
  * @module server/engine/ruleEngine
- * @description Compiles and executes rule graphs against records or telemetry streams.
+ * @description Executes a visual graph against one sample reading or a stream of readings.
+ * Source nodes read telemetry, math/filter nodes change or test values, and action nodes
+ * identify which alerts should be sent.
  */
 const { of, firstValueFrom } = require('rxjs');
 const { defaultIfEmpty } = require('rxjs/operators');
