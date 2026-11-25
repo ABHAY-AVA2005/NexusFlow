@@ -1,3 +1,7 @@
+/**
+ * @module server/compiler/nodeOperators
+ * @description Maps visual rule node types to RxJS operators and validated numeric values.
+ */
 const { filter, map } = require('rxjs/operators');
 
 function getNumericValue(input, field) {

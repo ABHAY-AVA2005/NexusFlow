@@ -1,3 +1,7 @@
+/**
+ * @module client/dashboard/TelemetryDashboard
+ * @description Coordinates the live telemetry view, metrics, charts, and alert panel.
+ */
 import React from 'react';
 import { useTelemetrySocket } from '../../hooks/useTelemetrySocket';
 import MetricsCard from './MetricsCard';

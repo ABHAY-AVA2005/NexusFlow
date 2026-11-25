@@ -1,3 +1,7 @@
+/**
+ * @module client/App
+ * @description Application shell that switches between live telemetry and the visual rule builder.
+ */
 import React, { useState } from 'react';
 import TelemetryDashboard from './components/dashboard/TelemetryDashboard';
 import RuleBuilder from './canvas/RuleBuilder';

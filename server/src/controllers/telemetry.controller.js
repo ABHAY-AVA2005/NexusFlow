@@ -1,3 +1,7 @@
+/**
+ * @module server/controllers/telemetry
+ * @description Handles telemetry ingestion, persistence, live rules, and broadcast dispatch.
+ */
 const Telemetry = require('../models/telemetry.model');
 const { broadcastTelemetry } = require('../ws/telemetryServer');
 const { processTelemetry: processLiveTelemetry } = require('../engine/liveRuleRegistry');

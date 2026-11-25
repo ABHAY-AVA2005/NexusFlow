@@ -1,3 +1,7 @@
+/**
+ * @module client/nodes/RuleNode
+ * @description Renders a visual rule graph node and its typed input/output handles.
+ */
 import React, { memo } from 'react';
 import { Handle, Position } from 'reactflow';
 

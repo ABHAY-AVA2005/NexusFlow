@@ -1,3 +1,7 @@
+/**
+ * @module server/models/graph
+ * @description Provides an in-memory graph document model for rule graph compatibility.
+ */
 class GraphModel {
   constructor({ id, name, nodes = [], edges = [] }) {
     this.id = id || `graph-${Date.now()}`;

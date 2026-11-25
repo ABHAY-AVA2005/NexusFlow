@@ -1,3 +1,7 @@
+/**
+ * @module server/test/telemetry
+ * @description QA coverage for telemetry validation, persistence, and WebSocket broadcasting.
+ */
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');

@@ -1,3 +1,7 @@
+/**
+ * @module client/canvas/RuleBuilder
+ * @description Provides the visual graph editor for creating, compiling, and activating rules.
+ */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactFlow, {
   addEdge,

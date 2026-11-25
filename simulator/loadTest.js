@@ -1,3 +1,7 @@
+/**
+ * @module simulator/loadTest
+ * @description Generates configurable ingestion load and writes benchmark statistics.
+ */
 const http = require('http');
 const fs = require('fs');
 const path = require('path');

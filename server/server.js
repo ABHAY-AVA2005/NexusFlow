@@ -1,3 +1,7 @@
+/**
+ * @module server
+ * @description Application entry point that starts the Express server when invoked directly.
+ */
 const app = require('./src/index');
 
 if (require.main === module) {

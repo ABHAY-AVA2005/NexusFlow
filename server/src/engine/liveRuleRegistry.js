@@ -1,3 +1,7 @@
+/**
+ * @module server/engine/liveRuleRegistry
+ * @description Tracks active rule graphs and safely evaluates live telemetry against them.
+ */
 const { randomUUID } = require('crypto');
 const { Subject } = require('rxjs');
 const { compileGraph, compileGraphToStream } = require('../compiler/graphCompiler');

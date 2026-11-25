@@ -1,3 +1,7 @@
+/**
+ * @module client/dashboard/AlertsPanel
+ * @description Displays active rule alerts and supports filtering and incident export.
+ */
 import React, { useState, useEffect } from 'react';
 
 export default function AlertsPanel({ alerts, onClear }) {

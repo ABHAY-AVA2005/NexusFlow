@@ -1,4 +1,7 @@
 /**
+ * @module simulator/simulator
+ * @description NexusFlow hardware telemetry generator with profiles, sensors, and HTTP ingestion.
+ *
  * NexusFlow Hardware Telemetry Simulator
  * Developed by Abhishek (Dashboard, Simulator & QA Engineer)
  * 

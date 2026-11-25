@@ -1,3 +1,7 @@
+/**
+ * @module server/engine/ruleEngine
+ * @description Compiles and executes rule graphs against records or telemetry streams.
+ */
 const { of, firstValueFrom } = require('rxjs');
 const { defaultIfEmpty } = require('rxjs/operators');
 const { compileGraph, compileGraphToStream } = require('../compiler/graphCompiler');

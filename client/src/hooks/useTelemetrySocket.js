@@ -1,3 +1,7 @@
+/**
+ * @module client/hooks/useTelemetrySocket
+ * @description Maintains the WebSocket connection and exposes live telemetry state to React components.
+ */
 import { useState, useEffect, useRef } from 'react';
 
 /**

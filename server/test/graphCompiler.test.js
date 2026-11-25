@@ -1,3 +1,7 @@
+/**
+ * @module server/test/graphCompiler
+ * @description QA coverage for graph validation, ordering, compilation, and stream execution.
+ */
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { of, toArray } = require('rxjs');

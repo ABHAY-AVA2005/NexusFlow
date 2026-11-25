@@ -1,3 +1,7 @@
+/**
+ * @module server/routes/telemetry
+ * @description Defines routes for single-record and batch telemetry ingestion.
+ */
 const express = require('express');
 const router = express.Router();
 const {

@@ -1,3 +1,7 @@
+/**
+ * @module server/test/simulator
+ * @description QA coverage for telemetry payload fields, sensor profiles, and anomaly boundaries.
+ */
 const assert = require('assert');
 const { describe, it } = require('node:test');
 const { generateTelemetry, SENSORS, PROFILES } = require('../../simulator/simulator');

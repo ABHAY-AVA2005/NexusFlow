@@ -1,3 +1,7 @@
+/**
+ * @module server/test/liveRuleRegistry
+ * @description QA coverage for live rule activation, evaluation, and deactivation.
+ */
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');

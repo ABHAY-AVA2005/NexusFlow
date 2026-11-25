@@ -1,3 +1,7 @@
+/**
+ * @module server/compiler/graphCompiler
+ * @description Validates visual rule graphs and compiles them into ordered RxJS execution streams.
+ */
 const { merge, from } = require('rxjs');
 const { getNodeOperator } = require('./nodeOperators');
 

@@ -1,3 +1,7 @@
+/**
+ * @module server/config/env
+ * @description Loads and normalizes environment configuration for the server.
+ */
 const path = require('path');
 const dotenv = require('dotenv');
 

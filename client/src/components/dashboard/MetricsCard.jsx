@@ -1,3 +1,7 @@
+/**
+ * @module client/dashboard/MetricsCard
+ * @description Renders a compact live sensor metric card with warning indicators.
+ */
 import React, { useRef, useEffect } from 'react';
 
 export default function MetricsCard({ sensorId, data }) {

@@ -1,3 +1,7 @@
+/**
+ * @module client/main
+ * @description Creates the React root and mounts the NexusFlow application.
+ */
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';

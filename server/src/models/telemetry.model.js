@@ -1,3 +1,7 @@
+/**
+ * @module server/models/telemetry
+ * @description Defines the Mongoose telemetry document schema and collection mapping.
+ */
 const mongoose = require('mongoose');
 
 /**

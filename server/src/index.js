@@ -1,3 +1,7 @@
+/**
+ * @module server/src/index
+ * @description Configures the Express application, middleware, routes, WebSocket services, and server lifecycle.
+ */
 const express = require('express');
 const cors = require('cors');
 const graphsRouter = require('./routes/graphs');

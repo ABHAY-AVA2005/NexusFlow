@@ -1,3 +1,7 @@
+/**
+ * @module server/ws/telemetryServer
+ * @description Provides WebSocket helpers for broadcasting telemetry and alert events.
+ */
 const { WebSocket, WebSocketServer } = require('ws');
 
 let webSocketServer;

@@ -1,3 +1,7 @@
+/**
+ * @module client/serialization/graph
+ * @description Converts React Flow nodes and edges to and from the backend graph contract.
+ */
 export function serializeGraph(nodes, edges) {
   return {
     nodes: nodes.map((node) => ({

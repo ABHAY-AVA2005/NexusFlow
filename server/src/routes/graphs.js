@@ -1,3 +1,7 @@
+/**
+ * @module server/routes/graphs
+ * @description Exposes graph compilation and live activation/deactivation endpoints.
+ */
 const express = require('express');
 const { compileGraph } = require('../compiler/graphCompiler');
 const { createRuleEngine } = require('../engine/ruleEngine');

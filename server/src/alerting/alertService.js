@@ -1,3 +1,7 @@
+/**
+ * @module server/alerting/alertService
+ * @description Dispatches rule alerts through webhooks and mock notification channels.
+ */
 const http = require('http');
 const https = require('https');
 const config = require('../config/env');

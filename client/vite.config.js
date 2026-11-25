@@ -1,3 +1,7 @@
+/**
+ * @module client/vite.config
+ * @description Configures the Vite development server and production build.
+ */
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 

@@ -1,3 +1,7 @@
+/**
+ * @module client/dashboard/SensorChart
+ * @description Renders streaming telemetry history with thresholds and sensor trend controls.
+ */
 import React, { useState } from 'react';
 import {
   ResponsiveContainer,

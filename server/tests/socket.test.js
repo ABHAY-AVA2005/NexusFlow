@@ -1,4 +1,7 @@
 /**
+ * @module server/tests/socket
+ * @description End-to-end Socket.IO integration coverage for connection, validation, broadcast, and persistence.
+ *
  * Socket.IO Integration Test Script
  *
  * Tests:
