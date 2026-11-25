@@ -20,6 +20,7 @@
 const { Server } = require('socket.io');
 const { validateTelemetryData } = require('../validators/telemetryValidator');
 const Telemetry = require('../models/telemetry.model');
+const { publishTelemetry } = require('./telemetryStream.service');
 
 // ==========================================
 // Initialization
@@ -82,6 +83,13 @@ const initializeSocket = (httpServer) => {
       // --- Step 2: Persist ---
       try {
         const savedRecord = await Telemetry.create(result.sanitized);
+
+        // Publish to central reactive stream only after successful persistence
+        try {
+          publishTelemetry(savedRecord);
+        } catch (streamError) {
+          console.error(`[Socket.IO] Failed to publish telemetry to stream for socket ${socket.id}:`, streamError.message);
+        }
 
         // Build a clean response payload (matches the REST controller shape).
         const responseData = {

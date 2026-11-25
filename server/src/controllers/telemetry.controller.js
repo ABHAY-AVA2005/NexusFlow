@@ -1,4 +1,5 @@
 const Telemetry = require('../models/telemetry.model');
+const { publishTelemetry } = require('../services/telemetryStream.service');
 
 /**
  * Ingest IoT Telemetry Reading
@@ -19,6 +20,13 @@ const createTelemetry = async (req, res, next) => {
     }
 
     const savedRecord = await Telemetry.create(telemetryData);
+
+    // Publish to the central reactive stream only after successful persistence
+    try {
+      publishTelemetry(savedRecord);
+    } catch (streamError) {
+      console.error('[TelemetryController] Failed to publish telemetry to stream:', streamError.message);
+    }
 
     return res.status(201).json({
       status: 'success',

@@ -404,3 +404,76 @@ The following tasks remain pending and will proceed once the compiler contract i
 - No new dependencies installed.
 - No artificial commits or automated pushes performed.
 - Clearly recorded that RxJS implementation is in design/preparation status and not yet implemented in production code.
+
+---
+
+## 25 November 2026 — Central Telemetry Stream Service Implementation & Reactive Ingestion Integration
+
+| Metadata | Details |
+| :--- | :--- |
+| **Activity** | Implementation of RxJS Central Telemetry Stream, REST & Socket.IO Stream Integration, Automated Test Suites |
+| **Author / Role** | Kajal Singh — Backend & Database Engineer |
+| **Branch** | `kajal-backend` |
+| **Status** | Completed & Verified |
+
+### 1. Completed Activities & Implementation Details
+
+1. **RxJS Dependency Integration**:
+   - Added `rxjs@^7.8.2` into `server/package.json` with lockfile synchronization in `server/package-lock.json`.
+   - Verified dependency tree consistency with Express 5 and Mongoose 9.
+
+2. **Central Telemetry Stream Service (`server/src/services/telemetryStream.service.js`)**:
+   - Implemented singleton reactive stream service backed by a module-scoped private `Subject` (`_telemetrySubject$`).
+   - Module-level encapsulation guarantees `_telemetrySubject$` cannot be accessed or manipulated directly from outside.
+   - Public API exposed:
+     - `publishTelemetry(savedRecord)`: Ingestion gateway for verified, persisted telemetry documents.
+     - `getTelemetryStream()`: Exposes a read-only Observable via `_telemetrySubject$.asObservable()`.
+   - Read-only protection: `asObservable()` strips `.next()`, `.error()`, and `.complete()`, preventing downstream rules or consumers from pushing arbitrary data or prematurely terminating the stream.
+   - Persisted Record Validation: Implemented `validatePersistedRecord(record)` matching the native Mongoose `Telemetry` schema (requires valid object, MongoDB `_id`, parseable `timestamp`, required string metadata for `deviceId`, `deviceType`, `location`, and finite numeric readings for `temperature`, `pressure`, and `vibration`).
+   - Fault Isolation: Downstream subscriber errors are isolated so that unhandled observer exceptions cannot terminate the central Subject or disrupt ingestion callers.
+
+3. **Dual Transport Ingestion Integration (Persist-Before-Publish)**:
+   - **REST Controller (`server/src/controllers/telemetry.controller.js`)**:
+     - Integrated `publishTelemetry(savedRecord)` strictly after successful MongoDB persistence via `await Telemetry.create(telemetryData)`.
+     - Preserved all existing HTTP responses (`201 Created` with formatted record data, `400 Bad Request` validation errors) and error handling.
+     - Database persistence failures prevent stream publication.
+   - **Socket.IO Manager (`server/src/services/socketManager.js`)**:
+     - Integrated `publishTelemetry(savedRecord)` strictly after successful MongoDB persistence via `await Telemetry.create(result.sanitized)`.
+     - Preserved all existing Socket.IO events (`telemetry:send`, `telemetry:received`, `telemetry:error`), client acknowledgement callbacks, and multi-client dashboard broadcasts.
+     - Database persistence failures emit errors exclusively to the sender and prevent stream publication.
+
+4. **Automated Test Suites**:
+   - **Reactive Stream Unit/Integration Suite (`server/tests/telemetryStream.test.js` - 20 Assertions)**:
+     - Test 1: Read-only Observable encapsulation (confirming `.next`, `.error`, `.complete` are `undefined`).
+     - Test 2: Successful publication and field reflection.
+     - Test 3: Strict FIFO event ordering across 5 sequential records.
+     - Test 4: Comprehensive invalid payload rejection across 13 schema and persistence guards.
+     - Test 5: Multicasting delivery across multiple concurrent subscribers.
+     - Test 6: Subscription teardown via `unsubscribe()`.
+     - Test 7: Stream resilience against faulty subscribers throwing unhandled exceptions.
+   - **Permanent REST Integration Suite (`server/tests/telemetry.test.js` - 25 Assertions)**:
+     - Test 1: Valid telemetry payload returns HTTP 201 and publishes exactly once into RxJS stream.
+     - Test 2: Invalid telemetry payload returns HTTP 400 and does NOT publish to stream.
+     - Test 3: Simulated MongoDB failure returns HTTP 500 and does NOT publish to stream.
+     - Test 4: Direct MongoDB query verifying saved document fields, followed by automated database teardown.
+   - **Existing Socket.IO Integration Suite (`server/tests/socket.test.js` - 24 Assertions)**:
+     - Verified all 24 existing assertions across connection lifecycle, validation, persistence, and broadcasting continue passing with zero regressions.
+   - **Package Configuration Update (`server/package.json`)**:
+     - Updated standard test command: `"test": "node tests/telemetryStream.test.js && node tests/socket.test.js"`.
+     - Added dedicated REST test command: `"test:rest": "node tests/telemetry.test.js"`.
+
+### 2. Comprehensive Verification Results
+
+| Test Suite | Command | Scope | Assertions | Status |
+| :--- | :--- | :--- | :---: | :---: |
+| **Reactive Telemetry Stream** | `node tests/telemetryStream.test.js` | Subject encapsulation, FIFO order, guards, multicasting, teardown, resilience | 20 | **PASSED** |
+| **REST Telemetry Integration** | `node tests/telemetry.test.js` | HTTP 201/400/500, stream publishing, exactly-once delivery, DB teardown | 25 | **PASSED** |
+| **Socket.IO Integration** | `node tests/socket.test.js` | WebSocket lifecycle, validation, ack, multi-client broadcast, DB persistence | 24 | **PASSED** |
+| **Combined Standard Test** | `npm.cmd test` | Full regression run across reactive stream and WebSocket suites | 44 | **PASSED** |
+| **Total Assertions** | | | **69** | **100% Pass (0 Failures)** |
+| **Code Style & Whitespace** | `git diff --check` | Working tree whitespace and formatting audit | 0 warnings | **CLEAN** |
+
+### 3. Current Architecture & Next Milestones
+
+- **Operational Status**: Both REST (`POST /api/telemetry`) and Socket.IO (`telemetry:send`) ingestion paths now persist readings to MongoDB Time-Series and immediately publish successfully persisted readings into the centralized, read-only RxJS telemetry stream (`getTelemetryStream()`).
+- **Future Work**: Graph compiler integration, dynamic rule evaluation, alert stream generation, and persistent rule management remain future tasks pending architecture alignment with Team Lead Abhay.
