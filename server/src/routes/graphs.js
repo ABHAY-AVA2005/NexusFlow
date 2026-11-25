@@ -15,7 +15,7 @@ const router = express.Router();
 router.get('/sample', (req, res) => {
   res.json({
     nodes: [
-      { id: 'source-1', type: 'source', config: { field: 'temperature' } },
+      { id: 'source-1', type: 'source', config: { field: 'temperature', machineId: 'all' } },
       { id: 'filter-1', type: 'filter', config: { field: 'temperature', minimum: 80 } },
       { id: 'action-1', type: 'action', config: { field: 'temperature', threshold: 85, message: 'High temperature alert' } },
     ],

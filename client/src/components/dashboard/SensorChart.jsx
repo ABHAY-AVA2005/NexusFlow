@@ -20,7 +20,7 @@ export default function SensorChart({ data }) {
   // Metric visibility toggles
   const [showTemp, setShowTemp] = useState(true);
   const [showVib, setShowVib] = useState(true);
-  const [showPress, setShowPress] = useState(false);
+  const [showPress, setShowPress] = useState(true);
 
   return (
     <div
@@ -127,7 +127,12 @@ export default function SensorChart({ data }) {
 
             <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
             <XAxis dataKey="time" stroke="#64748b" tick={{ fontSize: 11 }} />
-            <YAxis stroke="#64748b" tick={{ fontSize: 11 }} domain={[0, 115]} />
+            <YAxis
+              stroke="#64748b"
+              tick={{ fontSize: 11 }}
+              domain={[0, 115]}
+              label={{ value: '°C / mm/s', angle: -90, position: 'insideLeft', fill: '#64748b', fontSize: 10 }}
+            />
             <Tooltip
               contentStyle={{
                 backgroundColor: '#1b263b',

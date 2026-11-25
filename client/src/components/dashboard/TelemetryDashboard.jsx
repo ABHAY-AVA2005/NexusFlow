@@ -103,6 +103,28 @@ export default function TelemetryDashboard() {
         </div>
       </div>
 
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+          gap: '12px',
+          marginBottom: '20px',
+        }}
+      >
+        <div style={{ padding: '12px', border: '1px solid #334155', borderRadius: '8px', background: '#0d1b2a' }}>
+          <div style={{ color: '#38bdf8', fontSize: '0.78rem', fontWeight: 700 }}>AUTOMATIC MONITORING</div>
+          <div style={{ marginTop: 5, color: '#94a3b8', fontSize: '0.75rem', lineHeight: 1.5 }}>
+            Always watches temperature above 85°C and vibration above 5.5 mm/s. No setup is required.
+          </div>
+        </div>
+        <div style={{ padding: '12px', border: '1px solid #334155', borderRadius: '8px', background: '#0d1b2a' }}>
+          <div style={{ color: '#fbbf24', fontSize: '0.78rem', fontWeight: 700 }}>VISUAL RULE BUILDER</div>
+          <div style={{ marginTop: 5, color: '#94a3b8', fontSize: '0.75rem', lineHeight: 1.5 }}>
+            Lets operators create additional rules, choose a machine, set custom limits, test safely, and start or stop each rule independently.
+          </div>
+        </div>
+      </div>
+
       {/* Metrics Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '24px' }}>
         {activeSensors.length > 0 ? (

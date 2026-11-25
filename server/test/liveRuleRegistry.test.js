@@ -64,6 +64,55 @@ test('rejects duplicate active ids and empty graphs', () => {
   registry.deactivateRuleGraph(thresholdGraph.id);
 });
 
+test('applies one rule to a selected machine and keeps multiple rules independent', async () => {
+  const dispatchedAlerts = [];
+  const registry = createLiveRuleRegistry({
+    dispatchAlert: async (alert) => {
+      dispatchedAlerts.push(alert);
+      return { payload: { type: 'alert', ...alert } };
+    },
+    publishAlert: () => {},
+    logger: { error: (message) => assert.fail(message) },
+  });
+
+  const turbineRule = {
+    id: 'turbine-temperature-rule',
+    name: 'Turbine overheat',
+    nodes: [
+      { id: 'source', type: 'source', config: { field: 'temperature', machineId: 'turbine-01' } },
+      { id: 'action', type: 'action', config: { field: 'temperature', threshold: 85 } },
+    ],
+    edges: [{ source: 'source', target: 'action' }],
+  };
+
+  const boilerRule = {
+    id: 'boiler-temperature-rule',
+    name: 'Boiler overheat',
+    nodes: [
+      { id: 'source', type: 'source', config: { field: 'temperature', machineId: 'boiler-04' } },
+      { id: 'action', type: 'action', config: { field: 'temperature', threshold: 88 } },
+    ],
+    edges: [{ source: 'source', target: 'action' }],
+  };
+
+  registry.activateRuleGraph(turbineRule);
+  registry.activateRuleGraph(boilerRule);
+
+  registry.processTelemetry({ sensorId: 'pump-12', temperature: 100 });
+  registry.processTelemetry({ sensorId: 'turbine-01', temperature: 92 });
+  registry.processTelemetry({ sensorId: 'boiler-04', temperature: 90 });
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.equal(dispatchedAlerts.length, 2);
+  assert.deepEqual(
+    dispatchedAlerts.map((alert) => alert.ruleName).sort(),
+    ['Boiler overheat', 'Turbine overheat']
+  );
+
+  registry.deactivateRuleGraph(turbineRule.id);
+  registry.deactivateRuleGraph(boilerRule.id);
+});
+
 test('activates and stops a live graph through the graphs API', async () => {
   const server = app.listen(0);
   try {

@@ -34,6 +34,8 @@ function createLiveRuleRegistry({
 
     const telemetry$ = new Subject();
     const stream = compileGraphToStream(graph, telemetry$);
+    const sourceNode = (graph.nodes || []).find((node) => node.type === 'source');
+    const machineId = sourceNode?.config?.machineId || 'all';
     const subscription = stream.subscribe({
       next: (result) => {
         if (!result || !result.alert) {
@@ -43,6 +45,7 @@ function createLiveRuleRegistry({
         Promise.resolve(dispatchAlert({
           message: result.message || 'Rule threshold exceeded',
           telemetry: result,
+          ruleName: graph.name || 'Untitled live rule',
         }))
           .then((dispatch) => publishAlert(dispatch.payload))
           .catch((error) => {
@@ -55,7 +58,12 @@ function createLiveRuleRegistry({
       },
     });
 
-    activeRules.set(graphId, { telemetry$, subscription });
+    activeRules.set(graphId, {
+      telemetry$,
+      subscription,
+      name: graph.name || 'Untitled live rule',
+      machineId,
+    });
     return { graphId, compiled };
   }
 
@@ -72,7 +80,11 @@ function createLiveRuleRegistry({
   }
 
   function processTelemetry(record) {
-    for (const { telemetry$ } of activeRules.values()) {
+    const recordMachineId = record?.sensorId || record?.deviceId || record?.metadata?.deviceId;
+    for (const { telemetry$, machineId } of activeRules.values()) {
+      if (machineId !== 'all' && recordMachineId !== machineId) {
+        continue;
+      }
       telemetry$.next(record);
     }
   }

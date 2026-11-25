@@ -56,7 +56,7 @@ test('executes a graph as an RxJS stream and filters telemetry by graph path', a
 
   assert.deepEqual(results, [
     { temperature: 82, alert: false },
-    { temperature: 90, alert: true, message: 'Threshold exceeded' },
+    { temperature: 90, alert: true, threshold: 85, message: 'Threshold exceeded' },
   ]);
 });
 
@@ -66,8 +66,8 @@ test('accepts array-based telemetry sources and exposes the express health endpo
   );
 
   assert.deepEqual(results, [
-    { temperature: 88, alert: true, message: 'Threshold exceeded' },
-    { temperature: 95, alert: true, message: 'Threshold exceeded' },
+    { temperature: 88, alert: true, threshold: 85, message: 'Threshold exceeded' },
+    { temperature: 95, alert: true, threshold: 85, message: 'Threshold exceeded' },
   ]);
 
   const engine = createRuleEngine(thresholdGraph);
@@ -75,7 +75,7 @@ test('accepts array-based telemetry sources and exposes the express health endpo
     await engine.processTelemetry([{ temperature: 82 }, { temperature: 90 }]),
     [
       { temperature: 82, alert: false },
-      { temperature: 90, alert: true, message: 'Threshold exceeded' },
+      { temperature: 90, alert: true, threshold: 85, message: 'Threshold exceeded' },
     ]
   );
 
@@ -106,7 +106,7 @@ test('exposes single-record processing through the rule engine', async () => {
 
   assert.deepEqual(
     await engine.processTelemetry({ temperature: 88 }),
-    { temperature: 88, alert: true, message: 'Threshold exceeded' }
+    { temperature: 88, alert: true, threshold: 85, message: 'Threshold exceeded' }
   );
   assert.equal(await engine.processTelemetry({ temperature: 70 }), null);
 });

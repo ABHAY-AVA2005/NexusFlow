@@ -18,7 +18,7 @@ import RuleNode from '../nodes/RuleNode';
 import { deserializeGraph, serializeGraph } from '../serialization/graph';
 
 const palette = [
-  { type: 'source', label: 'Telemetry Source', description: 'Starts with an incoming sensor reading.', config: { field: 'temperature' } },
+  { type: 'source', label: 'Telemetry Source', description: 'Starts with an incoming sensor reading.', config: { field: 'temperature', machineId: 'all' } },
   { type: 'math', label: 'Scale Value', description: 'Changes a number, such as converting or multiplying it.', config: { field: 'temperature', factor: 1 } },
   { type: 'filter', label: 'Temperature Filter', description: 'Keeps only readings between the chosen minimum and maximum.', config: { field: 'temperature', minimum: 80, maximum: 150 } },
   { type: 'action', label: 'SMS / Webhook Alert', description: 'Creates an alert when the rule reaches this final node.', config: { field: 'temperature', threshold: 85, message: 'High temperature alert' } },
@@ -38,6 +38,8 @@ export default function RuleBuilder() {
   const [testTemperature, setTestTemperature] = useState(92);
   const [liveMatches, setLiveMatches] = useState([]);
   const [liveLastReading, setLiveLastReading] = useState(null);
+  const [ruleName, setRuleName] = useState('High temperature rule');
+  const [activeRules, setActiveRules] = useState([]);
   const nodeTypes = useMemo(() => ({ rule: RuleNode }), []);
 
   useEffect(() => {
@@ -111,9 +113,7 @@ export default function RuleBuilder() {
   );
 
   const clearCanvas = () => {
-    if (activeGraphId) {
-      deactivateGraph();
-    }
+    activeRules.forEach((rule) => deactivateGraph(rule.graphId));
     setNodes([]);
     setEdges([]);
     setActiveEdges(new Set());
@@ -160,7 +160,7 @@ export default function RuleBuilder() {
           ...node.data,
           config: {
             ...node.data.config,
-            [key]: Number(value),
+            [key]: key === 'machineId' ? value : Number(value),
           },
         },
       };
@@ -181,8 +181,8 @@ export default function RuleBuilder() {
   });
 
   const loadExampleRule = async () => {
-    if (activeGraphId) {
-      await deactivateGraph();
+    for (const rule of activeRules) {
+      await deactivateGraph(rule.graphId);
     }
     setStatus('Loading the example rule...');
     try {
@@ -282,16 +282,28 @@ export default function RuleBuilder() {
     }
     setStatus('Activating live rule...');
     try {
+      const graph = serializeGraph(nodes, edges);
+      graph.id = `rule-${Date.now()}`;
+      graph.name = ruleName.trim() || 'Untitled live rule';
       const response = await fetch('http://localhost:4000/api/graphs/activate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(serializeGraph(nodes, edges)),
+        body: JSON.stringify(graph),
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.message || 'Rule activation failed');
 
       activeGraphIdRef.current = payload.graphId;
       setActiveGraphId(payload.graphId);
+      const sourceNode = nodes.find((node) => node.data.ruleType === 'source');
+      setActiveRules((current) => [
+        ...current,
+        {
+          graphId: payload.graphId,
+          name: graph.name,
+          machineId: sourceNode?.data.config.machineId || 'all',
+        },
+      ]);
       setLiveMatches([]);
       setLiveLastReading(null);
       setActiveEdges(new Set(edges.map((edge) => edge.id)));
@@ -302,19 +314,22 @@ export default function RuleBuilder() {
     }
   };
 
-  const deactivateGraph = async () => {
-    if (!activeGraphId) return;
+  const deactivateGraph = async (graphId = activeGraphId) => {
+    if (!graphId) return;
     setStatus('Stopping live rule...');
     try {
       const response = await fetch(
-        `http://localhost:4000/api/graphs/activate/${encodeURIComponent(activeGraphId)}`,
+        `http://localhost:4000/api/graphs/activate/${encodeURIComponent(graphId)}`,
         { method: 'DELETE' }
       );
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.message || 'Rule deactivation failed');
 
-      activeGraphIdRef.current = null;
-      setActiveGraphId(null);
+      setActiveRules((current) => current.filter((rule) => rule.graphId !== graphId));
+      if (graphId === activeGraphId) {
+        activeGraphIdRef.current = null;
+        setActiveGraphId(null);
+      }
       setActiveEdges(new Set());
       setStatus('Live rule stopped');
     } catch (error) {
@@ -414,6 +429,22 @@ export default function RuleBuilder() {
                 />
               </label>
             )}
+            {selectedNode?.data.ruleType === 'source' && (
+              <label style={{ display: 'block', marginTop: 10, fontSize: 11, color: '#cbd5e1' }}>
+                Apply this rule to
+                <select
+                  value={selectedNode.data.config.machineId || 'all'}
+                  onChange={(event) => updateSelectedNodeConfig('machineId', event.target.value)}
+                  style={{ width: '100%', marginTop: 4, padding: 7, borderRadius: 5, border: '1px solid #334155', background: '#07111f', color: 'white' }}
+                >
+                  <option value="all">All machines</option>
+                  <option value="turbine-01">turbine-01</option>
+                  <option value="boiler-04">boiler-04</option>
+                  <option value="pump-12">pump-12</option>
+                  <option value="conveyor-09">conveyor-09</option>
+                </select>
+              </label>
+            )}
           </div>
         )}
         {palette.map((item) => (
@@ -439,6 +470,41 @@ export default function RuleBuilder() {
             </p>
           </div>
         ))}
+        <label style={{ display: 'block', marginTop: 12, fontSize: 11, color: '#94a3b8' }}>
+          Rule name
+          <input
+            value={ruleName}
+            onChange={(event) => setRuleName(event.target.value)}
+            placeholder="Example: Boiler overheat alert"
+            style={{ width: '100%', marginTop: 4, padding: 8, borderRadius: 6, border: '1px solid #334155', background: '#07111f', color: 'white' }}
+          />
+        </label>
+        {activeRules.length > 0 && (
+          <div style={{ marginTop: 10, padding: 10, border: '1px solid #10b981', borderRadius: 8, background: '#10b98110' }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: '#6ee7b7', marginBottom: 7 }}>
+              {activeRules.length} live rule{activeRules.length === 1 ? '' : 's'} running
+            </div>
+            {activeRules.map((rule) => (
+              <div key={rule.graphId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, marginBottom: 6 }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 11, color: '#e2e8f0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {rule.name}
+                  </div>
+                  <div style={{ fontSize: 9, color: '#94a3b8' }}>
+                    {rule.machineId === 'all' ? 'All machines' : rule.machineId}
+                  </div>
+                </div>
+                <button
+                  onClick={() => deactivateGraph(rule.graphId)}
+                  title={`Stop ${rule.name}`}
+                  style={{ border: '1px solid #ef4444', borderRadius: 5, background: 'transparent', color: '#fca5a5', padding: '4px 6px', cursor: 'pointer', fontSize: 10 }}
+                >
+                  Stop
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
         <div style={{ marginTop: 12, padding: '10px', border: '1px solid #334155', borderRadius: 8, background: '#0d1b2a' }}>
           <div style={{ marginBottom: 8, fontSize: 12, fontWeight: 700, color: '#e2e8f0' }}>
             3 simple steps
@@ -498,10 +564,10 @@ export default function RuleBuilder() {
           2. Test This Temperature
         </button>
         <button
-          onClick={activeGraphId ? deactivateGraph : activateGraph}
-          style={{ width: '100%', marginTop: 8, padding: 10, border: 0, borderRadius: 6, background: activeGraphId ? '#ef4444' : '#10b981', color: '#07111f', cursor: 'pointer', fontWeight: 700 }}
+          onClick={activateGraph}
+          style={{ width: '100%', marginTop: 8, padding: 10, border: 0, borderRadius: 6, background: '#10b981', color: '#07111f', cursor: 'pointer', fontWeight: 700 }}
         >
-          {activeGraphId ? '3. Stop Live Watching' : '3. Start Live Watching'}
+          3. Start Live Rule
         </button>
         {lastTest && (
           <div style={{ marginTop: 10, padding: 10, borderRadius: 6, border: `1px solid ${lastTest.triggered ? '#f59e0b' : '#334155'}`, background: lastTest.triggered ? '#f59e0b15' : '#111c2e' }}>
@@ -512,9 +578,11 @@ export default function RuleBuilder() {
             <div style={{ marginTop: 3, fontSize: 11, color: '#94a3b8' }}>{lastTest.message}</div>
           </div>
         )}
-        {activeGraphId && (
+        {activeRules.length > 0 && (
           <div style={{ marginTop: 10, padding: 10, borderRadius: 6, border: '1px solid #10b981', background: '#10b98118' }}>
-            <div style={{ fontSize: 12, color: '#6ee7b7', fontWeight: 800 }}>● LIVE RULE IS RUNNING</div>
+            <div style={{ fontSize: 12, color: '#6ee7b7', fontWeight: 800 }}>
+              ● {activeRules.length} LIVE RULE{activeRules.length === 1 ? '' : 'S'} RUNNING
+            </div>
             <div style={{ marginTop: 5, fontSize: 11, lineHeight: 1.45, color: '#94a3b8' }}>
               Incoming readings are being checked now. If temperature reaches the rule limit, open the Live Dashboard to see the alert.
             </div>
@@ -538,7 +606,7 @@ export default function RuleBuilder() {
         )}
         {status && <p style={{ marginTop: 12, fontSize: 12, color: '#94a3b8' }}>{status}</p>}
       </aside>
-      <div style={{ flex: 1 }}>
+      <div style={{ flex: 1, height: '100%', minHeight: 600 }}>
         <ReactFlow
           nodes={nodes}
           edges={displayEdges}

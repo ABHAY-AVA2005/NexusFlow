@@ -52,6 +52,8 @@ export function useTelemetrySocket(url = 'ws://localhost:8080') {
 
     // Trigger alert if anomaly or high threshold
     if (formatted.anomaly || formatted.temperature > 85 || formatted.vibration > 5.5) {
+      const temperatureBreached = formatted.temperature > 85;
+      const vibrationBreached = formatted.vibration > 5.5;
       setAlerts((prev) => [
         {
           id: Date.now() + Math.random(),
@@ -59,6 +61,13 @@ export function useTelemetrySocket(url = 'ws://localhost:8080') {
           sensorId: formatted.sensorId,
           message: `Threshold breached on ${formatted.sensorId}: Temp ${formatted.temperature}°C, Vib ${formatted.vibration}mm/s`,
           severity: 'HIGH',
+          category: 'AUTOMATIC THRESHOLD',
+          source: 'NexusFlow dashboard monitor',
+          metric: temperatureBreached ? 'temperature' : 'vibration',
+          actualValue: temperatureBreached ? formatted.temperature : formatted.vibration,
+          threshold: temperatureBreached ? 85 : 5.5,
+          unit: temperatureBreached ? '°C' : 'mm/s',
+          location: formatted.location || 'Industrial telemetry source',
         },
         ...prev.slice(0, 19),
       ]);
@@ -87,13 +96,21 @@ export function useTelemetrySocket(url = 'ws://localhost:8080') {
             const data = JSON.parse(event.data);
             if (data.type === 'alert') {
               const alert = data.alert || {};
+              const telemetry = alert.telemetry || {};
               setAlerts((prev) => [
                 {
                   id: Date.now() + Math.random(),
                   timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-                  sensorId: alert.telemetry?.sensorId || alert.telemetry?.deviceId || 'Live rule',
+                  sensorId: telemetry.sensorId || telemetry.deviceId || 'Live rule',
                   message: alert.message || 'The live rule was triggered',
                   severity: 'HIGH',
+                  category: 'VISUAL RULE',
+                  source: alert.ruleName ? `Rule: ${alert.ruleName}` : 'Visual Rule Builder',
+                  metric: 'temperature',
+                  actualValue: telemetry.temperature,
+                  threshold: telemetry.threshold,
+                  unit: '°C',
+                  location: telemetry.location || 'Live telemetry source',
                 },
                 ...prev.slice(0, 19),
               ]);
@@ -189,6 +206,9 @@ export function useTelemetrySocket(url = 'ws://localhost:8080') {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) return;
     setConnectionStatus('RECONNECTING');
     reconnectAttemptsRef.current = 0;
+    if (wsRef.current) {
+      wsRef.current.close();
+    }
   };
 
   return {

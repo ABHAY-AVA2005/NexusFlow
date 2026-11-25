@@ -60,11 +60,27 @@ export default function App() {
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto' }}>
-        <div style={{ display: activeTab === 'dashboard' ? 'block' : 'none', height: '100%' }}>
+      <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            overflowY: 'auto',
+            visibility: activeTab === 'dashboard' ? 'visible' : 'hidden',
+            pointerEvents: activeTab === 'dashboard' ? 'auto' : 'none',
+          }}
+        >
           <TelemetryDashboard />
         </div>
-        <div style={{ display: activeTab === 'canvas' ? 'block' : 'none', height: '100%' }}>
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            overflowY: 'hidden',
+            visibility: activeTab === 'canvas' ? 'visible' : 'hidden',
+            pointerEvents: activeTab === 'canvas' ? 'auto' : 'none',
+          }}
+        >
           <RuleBuilder />
         </div>
       </div>

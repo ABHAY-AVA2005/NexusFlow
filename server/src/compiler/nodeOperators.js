@@ -67,6 +67,7 @@ function getNodeOperator(node) {
       return {
         ...input,
         alert,
+        ...(alert && threshold !== undefined ? { threshold } : {}),
         ...(alert ? { message: config.message || (threshold === undefined ? 'Action triggered' : 'Threshold exceeded') } : {}),
       };
     });

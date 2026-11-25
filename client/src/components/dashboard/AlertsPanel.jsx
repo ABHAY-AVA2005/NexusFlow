@@ -3,11 +3,12 @@
  * @description Displays rule-triggered alerts and explains their severity. Users can
  * filter the list and download a JSON incident report for a maintenance review.
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 export default function AlertsPanel({ alerts, onClear }) {
   const [filter, setFilter] = useState('ALL'); // 'ALL' | 'CRITICAL'
   const [soundEnabled, setSoundEnabled] = useState(false);
+  const audioContextRef = useRef(null);
 
   // Web Audio API chime synthesizer (self-contained, zero external files required)
   const playAlertChime = () => {
@@ -15,7 +16,9 @@ export default function AlertsPanel({ alerts, onClear }) {
     try {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (!AudioCtx) return;
-      const ctx = new AudioCtx();
+      const ctx = audioContextRef.current || new AudioCtx();
+      audioContextRef.current = ctx;
+      if (ctx.state === 'suspended') ctx.resume();
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
 
@@ -34,12 +37,28 @@ export default function AlertsPanel({ alerts, onClear }) {
     } catch {}
   };
 
+  const toggleSound = () => {
+    if (!soundEnabled) {
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) {
+          const ctx = audioContextRef.current || new AudioCtx();
+          audioContextRef.current = ctx;
+          if (ctx.state === 'suspended') ctx.resume();
+          setSoundEnabled(true);
+        }
+      } catch {}
+    } else {
+      setSoundEnabled(false);
+    }
+  };
+
   // Play chime whenever a new critical alert arrives
   useEffect(() => {
     if (alerts.length > 0 && alerts[0].severity === 'HIGH') {
       playAlertChime();
     }
-  }, [alerts.length]);
+  }, [alerts.length, soundEnabled]);
 
   // Export alert log to a JSON file for incident reporting
   const exportAlerts = () => {
@@ -92,7 +111,7 @@ export default function AlertsPanel({ alerts, onClear }) {
         </div>
 
         <button
-          onClick={() => setSoundEnabled(!soundEnabled)}
+          onClick={toggleSound}
           title="Toggle audio alert chime"
           style={{
             background: soundEnabled ? '#10b98122' : '#1e293b',
@@ -205,7 +224,35 @@ export default function AlertsPanel({ alerts, onClear }) {
                 <strong style={{ color: '#fca5a5' }}>{alert.sensorId}</strong>
                 <span style={{ color: '#94a3b8', fontSize: '0.7rem' }}>{alert.timestamp}</span>
               </div>
-              <div style={{ fontSize: '0.8rem', color: '#e2e8f0' }}>{alert.message}</div>
+              <div style={{ fontSize: '0.82rem', color: '#e2e8f0', fontWeight: 700 }}>{alert.message}</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '5px 10px', marginTop: 4 }}>
+                <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>
+                  Source <strong style={{ color: '#cbd5e1' }}>{alert.source || 'NexusFlow monitor'}</strong>
+                </div>
+                <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>
+                  Category <strong style={{ color: '#cbd5e1' }}>{alert.category || 'CRITICAL EVENT'}</strong>
+                </div>
+                {alert.metric && (
+                  <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>
+                    Metric <strong style={{ color: '#cbd5e1' }}>{alert.metric}</strong>
+                  </div>
+                )}
+                {alert.actualValue !== undefined && (
+                  <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>
+                    Actual <strong style={{ color: '#fca5a5' }}>{alert.actualValue}{alert.unit || '°C'}</strong>
+                  </div>
+                )}
+                {alert.threshold !== undefined && (
+                  <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>
+                    Threshold <strong style={{ color: '#cbd5e1' }}>{alert.threshold}{alert.unit || '°C'}</strong>
+                  </div>
+                )}
+                {alert.location && (
+                  <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>
+                    Location <strong style={{ color: '#cbd5e1' }}>{alert.location}</strong>
+                  </div>
+                )}
+              </div>
             </div>
           ))
         )}
