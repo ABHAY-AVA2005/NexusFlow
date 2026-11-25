@@ -32,6 +32,7 @@ export default function RuleBuilder() {
   const [status, setStatus] = useState('');
   const [activeEdges, setActiveEdges] = useState(new Set());
   const [activeGraphId, setActiveGraphId] = useState(null);
+  const [selectedItem, setSelectedItem] = useState(null);
   const nodeTypes = useMemo(() => ({ rule: RuleNode }), []);
 
   const validateCanvasBeforeUse = () => {
@@ -83,8 +84,48 @@ export default function RuleBuilder() {
     setNodes([]);
     setEdges([]);
     setActiveEdges(new Set());
+    setSelectedItem(null);
     setStatus('Canvas cleared. Add a Source, a Filter, and an Alert.');
   };
+
+  const deleteSelectedItem = async () => {
+    if (!selectedItem) {
+      setStatus('Click a node or connection line first, then use Delete.');
+      return;
+    }
+
+    // A live graph may be using this canvas. Stop it before changing the canvas so
+    // the running server never continues evaluating a graph that no longer exists here.
+    if (activeGraphId) {
+      await deactivateGraph();
+    }
+
+    if (selectedItem.type === 'node') {
+      setNodes((current) => current.filter((node) => node.id !== selectedItem.id));
+      setEdges((current) =>
+        current.filter((edge) => edge.source !== selectedItem.id && edge.target !== selectedItem.id)
+      );
+      setStatus(`Deleted node "${selectedItem.label}" and any connections attached to it.`);
+    } else {
+      setEdges((current) => current.filter((edge) => edge.id !== selectedItem.id));
+      setStatus('Deleted the selected connection.');
+    }
+
+    setSelectedItem(null);
+  };
+
+  useEffect(() => {
+    const handleDeleteKey = (event) => {
+      const targetTag = event.target?.tagName?.toLowerCase();
+      if (targetTag === 'input' || targetTag === 'textarea') return;
+      if (event.key !== 'Delete' && event.key !== 'Backspace') return;
+      event.preventDefault();
+      deleteSelectedItem();
+    };
+
+    window.addEventListener('keydown', handleDeleteKey);
+    return () => window.removeEventListener('keydown', handleDeleteKey);
+  });
 
   const loadExampleRule = async () => {
     setStatus('Loading the example rule...');
@@ -234,6 +275,36 @@ export default function RuleBuilder() {
         >
           Clear Canvas
         </button>
+        {selectedItem && (
+          <div
+            style={{
+              marginBottom: 8,
+              padding: 10,
+              border: '1px solid #ef4444',
+              borderRadius: 6,
+              background: '#ef444415',
+            }}
+          >
+            <div style={{ marginBottom: 8, fontSize: 12, color: '#fecaca' }}>
+              Selected {selectedItem.type}: <strong>{selectedItem.label}</strong>
+            </div>
+            <button
+              onClick={deleteSelectedItem}
+              style={{
+                width: '100%',
+                padding: '8px',
+                border: 0,
+                borderRadius: 6,
+                background: '#ef4444',
+                color: 'white',
+                cursor: 'pointer',
+                fontWeight: 700,
+              }}
+            >
+              Delete Selected
+            </button>
+          </div>
+        )}
         {palette.map((item) => (
           <div key={item.type} style={{ marginBottom: 8 }}>
             <button
@@ -279,6 +350,21 @@ export default function RuleBuilder() {
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
+          onNodeClick={(_, node) =>
+            setSelectedItem({
+              type: 'node',
+              id: node.id,
+              label: node.data.label,
+            })
+          }
+          onEdgeClick={(_, edge) =>
+            setSelectedItem({
+              type: 'connection',
+              id: edge.id,
+              label: `${edge.source} → ${edge.target}`,
+            })
+          }
+          onPaneClick={() => setSelectedItem(null)}
           fitView
         >
           <Background color="#334155" gap={16} />
