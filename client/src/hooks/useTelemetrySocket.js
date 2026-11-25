@@ -10,7 +10,7 @@ import { useState, useEffect, useRef } from 'react';
  * Resilient WebSocket & Simulation Hook for NexusFlow Telemetry.
  * Ensures the live stream ticks and updates every second without getting stuck.
  */
-export function useTelemetrySocket(url = 'ws://localhost:5000') {
+export function useTelemetrySocket(url = 'ws://localhost:8080') {
   const [telemetryData, setTelemetryData] = useState([]);
   const [latestMetric, setLatestMetric] = useState(null);
   const [alerts, setAlerts] = useState([]);
