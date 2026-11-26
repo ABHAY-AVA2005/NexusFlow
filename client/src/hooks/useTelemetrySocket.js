@@ -19,6 +19,7 @@ export function useTelemetrySocket(url = 'ws://localhost:8080') {
   const [sensorSummary, setSensorSummary] = useState({});
 
   const wsRef = useRef(null);
+  const hasLiveTelemetryRef = useRef(false);
   const isPausedRef = useRef(isPaused);
   const reconnectAttemptsRef = useRef(0);
   const reconnectTimerRef = useRef(null);
@@ -86,7 +87,7 @@ export function useTelemetrySocket(url = 'ws://localhost:8080') {
 
         ws.onopen = () => {
           if (isCancelled) return;
-          setConnectionStatus('CONNECTED');
+          setConnectionStatus(hasLiveTelemetryRef.current ? 'CONNECTED' : 'SIMULATED');
           reconnectAttemptsRef.current = 0;
         };
 
@@ -116,12 +117,25 @@ export function useTelemetrySocket(url = 'ws://localhost:8080') {
               ]);
               return;
             }
+
+            if (
+              !data ||
+              !Number.isFinite(Number(data.temperature)) ||
+              !Number.isFinite(Number(data.pressure)) ||
+              !Number.isFinite(Number(data.vibration))
+            ) {
+              return;
+            }
+
+            hasLiveTelemetryRef.current = true;
+            setConnectionStatus('CONNECTED');
             ingest(data);
           } catch {}
         };
 
         ws.onclose = () => {
           if (isCancelled) return;
+          hasLiveTelemetryRef.current = false;
           setConnectionStatus('SIMULATED');
           scheduleRetry();
         };
@@ -151,7 +165,7 @@ export function useTelemetrySocket(url = 'ws://localhost:8080') {
     };
   }, [url]);
 
-  // 2. Stable simulation stream: emits every 1000ms whenever WebSocket is offline
+  // 2. Keep the demo stream moving until the socket delivers real sensor readings.
   useEffect(() => {
     const SENSORS = [
       { id: 'turbine-01', temp: 74, press: 30, vib: 2.2, rpm: 2950 },
@@ -163,8 +177,7 @@ export function useTelemetrySocket(url = 'ws://localhost:8080') {
     let index = 0;
 
     const interval = setInterval(() => {
-      // If live WebSocket is connected, WebSocket handles the data
-      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      if (hasLiveTelemetryRef.current) {
         return;
       }
 
@@ -203,7 +216,11 @@ export function useTelemetrySocket(url = 'ws://localhost:8080') {
       clearTimeout(reconnectTimerRef.current);
       reconnectTimerRef.current = null;
     }
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) return;
+    if (
+      wsRef.current &&
+      wsRef.current.readyState === WebSocket.OPEN &&
+      hasLiveTelemetryRef.current
+    ) return;
     setConnectionStatus('RECONNECTING');
     reconnectAttemptsRef.current = 0;
     if (wsRef.current) {
