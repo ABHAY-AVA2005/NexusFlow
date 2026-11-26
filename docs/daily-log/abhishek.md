@@ -85,3 +85,9 @@
 - **Implemented:** Integrated toast banner into `TelemetryDashboard.jsx`, synchronizing notification dispatch with critical threshold breaches.
   **Reason/tools:** Provides non-intrusive, auto-dismissing visual warning banners for active safety violations.
 - **Verified:** Tested in browser; verified toast slides in smoothly on anomaly, displays accurate machine metrics, and auto-dismisses upon timer completion.
+
+## 2026-11-26
+
+- **Implemented:** Created automated end-to-end integration test suite in `server/test/e2ePipeline.test.js` validating the full pipeline from simulated machine telemetry to RxJS graph filtering and alert delivery.
+  **Reason/tools:** Proves cross-module integration between the mock sensor generator and the backend rule engine ahead of final review demonstrations.
+- **Verified:** Ran full test runner; confirmed 15 out of 15 tests passed across the compiler, simulator, and end-to-end integration pipelines with sub-15ms evaluation latency.
