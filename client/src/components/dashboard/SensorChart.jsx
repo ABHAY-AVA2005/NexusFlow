@@ -6,7 +6,7 @@
 import React, { useState } from 'react';
 import {
   ResponsiveContainer,
-  AreaChart,
+  ComposedChart,
   Area,
   Line,
   XAxis,
@@ -113,7 +113,7 @@ export default function SensorChart({ data }) {
       {/* Chart Container */}
       <div style={{ height: '270px', width: '100%' }}>
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data}>
+          <ComposedChart data={data}>
             <defs>
               <linearGradient id="tempGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.35} />
@@ -128,10 +128,19 @@ export default function SensorChart({ data }) {
             <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
             <XAxis dataKey="time" stroke="#64748b" tick={{ fontSize: 11 }} />
             <YAxis
+              yAxisId="measurements"
               stroke="#64748b"
               tick={{ fontSize: 11 }}
               domain={[0, 115]}
               label={{ value: '°C / mm/s', angle: -90, position: 'insideLeft', fill: '#64748b', fontSize: 10 }}
+            />
+            <YAxis
+              yAxisId="pressure"
+              orientation="right"
+              stroke="#fbbf24"
+              tick={{ fontSize: 11, fill: '#fbbf24' }}
+              domain={[0, 80]}
+              label={{ value: 'PSI', angle: 90, position: 'insideRight', fill: '#fbbf24', fontSize: 10 }}
             />
             <Tooltip
               contentStyle={{
@@ -145,6 +154,7 @@ export default function SensorChart({ data }) {
 
             {showTemp && (
               <ReferenceLine
+                yAxisId="measurements"
                 y={85}
                 stroke="#f43f5e"
                 strokeDasharray="4 4"
@@ -154,6 +164,7 @@ export default function SensorChart({ data }) {
 
             {showTemp && (
               <Area
+                yAxisId="measurements"
                 type="monotone"
                 dataKey="temperature"
                 stroke="#38bdf8"
@@ -166,6 +177,7 @@ export default function SensorChart({ data }) {
 
             {showVib && (
               <Area
+                yAxisId="measurements"
                 type="monotone"
                 dataKey="vibration"
                 stroke="#34d399"
@@ -178,6 +190,7 @@ export default function SensorChart({ data }) {
 
             {showPress && (
               <Line
+                yAxisId="pressure"
                 type="monotone"
                 dataKey="pressure"
                 stroke="#fbbf24"
@@ -186,7 +199,7 @@ export default function SensorChart({ data }) {
                 isAnimationActive={false}
               />
             )}
-          </AreaChart>
+          </ComposedChart>
         </ResponsiveContainer>
       </div>
     </div>
