@@ -477,3 +477,60 @@ The following tasks remain pending and will proceed once the compiler contract i
 
 - **Operational Status**: Both REST (`POST /api/telemetry`) and Socket.IO (`telemetry:send`) ingestion paths now persist readings to MongoDB Time-Series and immediately publish successfully persisted readings into the centralized, read-only RxJS telemetry stream (`getTelemetryStream()`).
 - **Future Work**: Graph compiler integration, dynamic rule evaluation, alert stream generation, and persistent rule management remain future tasks pending architecture alignment with Team Lead Abhay.
+
+---
+
+## 26 November 2026 — Phase 1 Graph Compiler & Node Operators Integration
+
+| Metadata | Details |
+| :--- | :--- |
+| **Activity** | Implementation & Isolation of Graph Compiler, Node Operators, and Automated Test Suite |
+| **Author / Role** | Kajal Singh — Backend & Database Engineer |
+| **Branch** | `kajal-backend` |
+| **Status** | Completed & Verified |
+
+### 1. Completed Activities & Implementation Details
+
+1. **Graph Compiler Implementation (`server/src/compiler/graphCompiler.js`)**:
+   - **Structural Graph Validation (`validateGraph`)**: Ensures payload integrity, validates `nodes` and `edges` arrays, enforces unique string node IDs, restricts node types to supported set (`source`, `math`, `filter`, `action`), requires non-null `config` objects, and verifies that all edge endpoints reference existing nodes.
+   - **Topological Sorting (`topologicalSort`)**: Implements Kahn's algorithm using in-degree tracking and queue processing to derive safe execution order regardless of input array ordering.
+   - **Cycle Detection**: Detects circular dependencies within directed graphs (throwing `Graph contains a cycle and cannot be compiled.`) to prevent infinite evaluation loops.
+   - **Static Compilation (`compileGraph`)**: Compiles graph definitions into structured metadata (`id`, `nodeCount`, `edgeCount`, `order`, `nodes`).
+   - **Stream Pipeline Generation (`compileGraphToStream`)**: Transforms visual DAG configurations into reactive RxJS stream pipelines:
+     - Connects `source` nodes directly to the incoming telemetry stream (enforcing no incoming edges).
+     - Detects orphaned nodes lacking upstream connections and throws descriptive errors.
+     - Implements **Fan-In Support**: Merges multiple upstream branches using RxJS `merge(...parents)` before piping to downstream operators.
+     - Implements **Fan-Out Support**: Aggregates terminal sink nodes using RxJS `merge(...outputStreams)`.
+     - Supports native RxJS Observables (e.g. `getTelemetryStream()`) and automatically normalizes plain Array/Iterable inputs via `from()`.
+
+2. **Reactive Node Operators (`server/src/compiler/nodeOperators.js`)**:
+   - Maps visual node types to pure, reusable RxJS pipeable operators (`filter`, `map`).
+   - Implements `getNumericValue(input, field)` with strict numeric finite validation (`typeof rawValue === 'number' && Number.isFinite(rawValue)`).
+   - Rejects numeric strings, null, undefined, booleans, NaN, and Infinity; rejects missing properties without converting them to zero.
+   - **`source` Operator**: Identity pass-through of telemetry records.
+   - **`math` Operator**: Multiplies target field by scaling factor, formatting output to 2 decimal places (`Number((value * factor).toFixed(2))`).
+   - **`filter` Operator**: Evaluates telemetry values against `[minimum, maximum]` range, dropping non-matching events.
+   - **`action` Operator**: Evaluates alert thresholds (`value >= threshold`); always adds the `alert` boolean to emitted records, and adds `threshold` and the alert message when the threshold condition is met.
+
+3. **Graph Contract Specification (`shared/graph-schema.json`)**:
+   - Stored shared JSON Schema contract defining the data structure for visual nodes, configs, and directional edges.
+   - Restricted node `type` using strict enum: `['source', 'math', 'filter', 'action']`.
+
+4. **Automated Unit & Integration Test Suite (`server/tests/graphCompiler.test.js` - 46 Assertions)**:
+   - Built standalone, isolated test suite matching the zero-dependency test runner pattern of `kajal-backend`.
+   - Verified structural validation, schema enum verification, schema rejection, Kahn's topological sort, circular dependency detection, static compilation, reactive pipeline transformations (math, filter, action), fan-in merging, fan-out branching, array normalization, strict numeric validation guards (rejecting strings, null, undefined, booleans, NaN, Infinity, missing values), and error guards.
+
+### 2. Comprehensive Verification Results
+
+| Test Suite | Command | Scope | Assertions | Status |
+| :--- | :--- | :--- | :---: | :---: |
+| **Graph Compiler & Operators** | `node tests/graphCompiler.test.js` | Validation, schema enum, topological sort, cycle detection, operators, fan-in/fan-out, strict numeric guards | 46 | **PASSED** |
+| **Reactive Telemetry Stream** | `node tests/telemetryStream.test.js` | Subject encapsulation, FIFO order, guards, multicasting, teardown, resilience | 20 | **PASSED** |
+| **Socket.IO Integration** | `node tests/socket.test.js` | WebSocket lifecycle, validation, ack, multi-client broadcast, DB persistence | 24 | **PASSED** |
+| **Total Assertions** | | | **90** | **100% Pass (0 Failures)** |
+| **Code Style & Whitespace** | `git diff --check` | Working tree whitespace and formatting audit | 0 warnings | **CLEAN** |
+
+### 3. Preserved Architecture & Stability
+- **Express 5 & Mongoose 9**: Zero modifications to web framework, middleware, or database schema.
+- **Socket.IO Real-Time Ingestion**: Preserved completely without port or lifecycle conflicts.
+- **Central Telemetry Stream**: `telemetryStream.service.js` remains completely isolated. The compiler operates as a pure computational module ready for stream integration in Phase 2.
