@@ -91,3 +91,9 @@
 - **Implemented:** Created automated end-to-end integration test suite in `server/test/e2ePipeline.test.js` validating the full pipeline from simulated machine telemetry to RxJS graph filtering and alert delivery.
   **Reason/tools:** Proves cross-module integration between the mock sensor generator and the backend rule engine ahead of final review demonstrations.
 - **Verified:** Ran full test runner; confirmed 15 out of 15 tests passed across the compiler, simulator, and end-to-end integration pipelines with sub-15ms evaluation latency.
+
+## 2026-11-27
+
+- **Implemented:** Overhauled master `README.md` with system architecture diagrams, module breakdown, benchmark target summaries, and clean port 5174 setup instructions.
+  **Reason/tools:** Elevates repository documentation to industry standards ahead of final project evaluation (20% marks).
+- **Verified:** Confirmed markdown links, Mermaid architecture rendering, and CLI demo commands execute without errors.
