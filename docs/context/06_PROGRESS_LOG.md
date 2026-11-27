@@ -534,3 +534,62 @@ The following tasks remain pending and will proceed once the compiler contract i
 - **Express 5 & Mongoose 9**: Zero modifications to web framework, middleware, or database schema.
 - **Socket.IO Real-Time Ingestion**: Preserved completely without port or lifecycle conflicts.
 - **Central Telemetry Stream**: `telemetryStream.service.js` remains completely isolated. The compiler operates as a pure computational module ready for stream integration in Phase 2.
+
+---
+
+# Milestone: Phase 3 — Milestone 1: Persistent Rule Model & Database Foundation
+**Date**: 27 November 2026
+**Author**: Kajal Singh — Backend & Database Engineer
+**Branch**: `kajal-backend`
+
+### 1. Work Completed
+
+1. **Persistent Rule Model (`server/src/models/rule.model.js`)**:
+   - Built on Mongoose 9 using structured subdocuments (`ruleNodeSchema`, `ruleEdgeSchema`, `ruleScopeSchema`).
+   - Defined core schema fields:
+     - `graphId`: String, required, unique, indexed.
+     - `name`: String, required, trimmed.
+     - `description`: String, optional, trimmed.
+     - `scope`: Subdocument with `deviceId`, `deviceType`, and `location` (defaulting to `'all'`).
+     - `nodes`: Subdocument array enforcing node `type` enum (`source`, `math`, `filter`, `action`) and `id`.
+     - `edges`: Subdocument array validating `source` and `target` node connections.
+     - `active`: Boolean, default `false`, indexed.
+     - Timestamps: Automated `createdAt` and `updatedAt`.
+   - **Validation Hooks**:
+     - Pre-validation hook enforces complete graph structural integrity (`validateGraph`) and cycle detection via Kahn's algorithm (`topologicalSort`).
+     - Directly invalidates `nodes` or `edges` path if unresolvable endpoints, duplicate node IDs, or circular dependencies exist.
+     - Configured with `minimize: false` to ensure empty `{ config: {} }` objects remain intact across Mongoose conversions.
+   - **Persistence & Lifecycle Independence**:
+     - Separates rule definitions from runtime execution status. Toggling `active: false` updates the status flag while preserving all nodes, edges, configs, and scopes.
+
+2. **Automated Unit & Integration Test Suite (`server/tests/ruleModel.test.js`)**:
+   - Developed comprehensive test suite with 33 assertions covering:
+     - Valid rule creation and subdocument persistence.
+     - Missing required fields rejection (`graphId`, `name`, `nodes`).
+     - Unsupported node type rejection via enum validation.
+     - Invalid edge endpoint rejection (non-existent source or target).
+     - Duplicate node ID rejection.
+     - Circular dependency rejection via topological sort.
+     - Unique `graphId` index duplicate rejection (MongoDB E11000).
+     - Default `active: false` lifecycle flag.
+     - Default scope assignment (`all`) and custom device/type/location scope persistence.
+     - Automatic timestamp generation (`createdAt`, `updatedAt`) and mutation tracking.
+     - Preservation of all graph nodes and edges after deactivation (`active: false`).
+
+### 2. Comprehensive Verification Results
+
+| Test Suite | Command | Scope | Assertions | Status |
+| :--- | :--- | :--- | :---: | :---: |
+| **Rule Model & Persistence** | `node tests/ruleModel.test.js` | Schema validation, enums, edges, cycles, unique index, scoping, timestamps, deactivation | 33 | **PASSED** |
+| **Graph Compiler & Operators** | `node tests/graphCompiler.test.js` | Validation, topological sort, cycle detection, fan-in/fan-out, numeric guards, E2E pipeline | 60 | **PASSED** |
+| **Reactive Telemetry Stream** | `node tests/telemetryStream.test.js` | Subject encapsulation, FIFO order, guards, multicasting, teardown, resilience, normalization | 31 | **PASSED** |
+| **REST Telemetry & RxJS** | `node tests/telemetry.test.js` | HTTP ingestion, Mongoose persistence, stream emission, plain object spread verification | 34 | **PASSED** |
+| **Socket.IO Integration** | `node tests/socket.test.js` | WebSocket lifecycle, validation, ack, multi-client broadcast, DB persistence, stream check | 29 | **PASSED** |
+| **Total Assertions** | | | **187** | **100% Pass (0 Failures)** |
+| **Code Style & Whitespace** | `git diff --check` | Working tree whitespace and formatting audit | 0 warnings | **CLEAN** |
+
+### 3. Preserved Architecture & Stability
+- **Express 5 & Mongoose 9**: Zero modifications to web framework, middleware, or existing telemetry database schema.
+- **Socket.IO Real-Time Ingestion**: Preserved completely without port or lifecycle conflicts.
+- **Central Telemetry Stream**: Central RxJS multicast stream remains untouched and ready for binding with the live rule registry in Milestone 2.
+- **Zero Premature Dependencies**: No new packages added to `package.json`. No premature CRUD routes, live subscriptions, or alert dispatchers introduced.
