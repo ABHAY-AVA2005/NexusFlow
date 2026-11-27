@@ -21,9 +21,14 @@ const createTelemetry = async (req, res, next) => {
 
     const savedRecord = await Telemetry.create(telemetryData);
 
+    // Normalize to plain JavaScript object before publishing into central reactive stream
+    const plainRecord = typeof savedRecord.toObject === 'function'
+      ? savedRecord.toObject()
+      : savedRecord;
+
     // Publish to the central reactive stream only after successful persistence
     try {
-      publishTelemetry(savedRecord);
+      publishTelemetry(plainRecord);
     } catch (streamError) {
       console.error('[TelemetryController] Failed to publish telemetry to stream:', streamError.message);
     }

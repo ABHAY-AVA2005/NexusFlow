@@ -84,9 +84,14 @@ const initializeSocket = (httpServer) => {
       try {
         const savedRecord = await Telemetry.create(result.sanitized);
 
+        // Normalize to plain JavaScript object before publishing into central reactive stream
+        const plainRecord = typeof savedRecord.toObject === 'function'
+          ? savedRecord.toObject()
+          : savedRecord;
+
         // Publish to central reactive stream only after successful persistence
         try {
-          publishTelemetry(savedRecord);
+          publishTelemetry(plainRecord);
         } catch (streamError) {
           console.error(`[Socket.IO] Failed to publish telemetry to stream for socket ${socket.id}:`, streamError.message);
         }

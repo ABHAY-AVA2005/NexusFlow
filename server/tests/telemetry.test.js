@@ -110,6 +110,19 @@ async function runTests() {
     assert(streamEmissions[0].metadata.deviceId === 'test-rest-sensor-001', 'Stream emission contains matching deviceId');
     assert(streamEmissions[0].temperature === 78.4, 'Stream emission contains matching temperature');
 
+    // Verify stream emission is a plain JavaScript object (no Mongoose prototype getters)
+    assert(typeof streamEmissions[0].toObject === 'undefined', 'Stream emission is a plain object without .toObject()');
+    assert(!('$__' in streamEmissions[0]), 'Stream emission does not contain Mongoose $__ property');
+    assert(!('_doc' in streamEmissions[0]), 'Stream emission does not contain Mongoose _doc property');
+
+    const spreadEmission = { ...streamEmissions[0], temperature: 99.9 };
+    assert(spreadEmission.metadata && spreadEmission.metadata.deviceId === 'test-rest-sensor-001', 'Spreading stream emission preserves metadata');
+    assert(spreadEmission.pressure === 101.325, 'Spreading stream emission preserves pressure');
+    assert(spreadEmission.vibration === 0.015, 'Spreading stream emission preserves vibration');
+    assert(spreadEmission.timestamp !== undefined, 'Spreading stream emission preserves timestamp');
+    assert(String(spreadEmission._id) === String(body1.data.id), 'Spreading stream emission preserves _id');
+    assert(spreadEmission.temperature === 99.9, 'Spreading stream emission allows overriding temperature');
+
     // ════════════════════════════════════════════════════════════
     // Test 2: Invalid Telemetry Rejection (HTTP 400 + No Stream)
     // ════════════════════════════════════════════════════════════

@@ -17,6 +17,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const { io: ioClient } = require('socket.io-client');
 const { initializeSocket } = require('../src/services/socketManager');
+const { getTelemetryStream } = require('../src/services/telemetryStream.service');
 const config = require('../src/config/env');
 
 // Use a different port to avoid clashing with a running dev server.
@@ -66,6 +67,12 @@ async function runTests() {
 
   await new Promise((resolve) => httpServer.listen(TEST_PORT, resolve));
   console.log(`  Test server listening on port ${TEST_PORT}\n`);
+
+  // Subscribe to central RxJS telemetry stream
+  const streamEmissions = [];
+  const streamSub = getTelemetryStream().subscribe({
+    next: (record) => streamEmissions.push(record)
+  });
 
   // ════════════════════════════════════════════════════════════
   // TEST 1: Client connection
@@ -166,6 +173,14 @@ async function runTests() {
   const senderBroadcast = await broadcastOnSender;
   assert(senderBroadcast.status === 'success', 'sender receives telemetry:received broadcast');
 
+  // Verify emission in central RxJS stream
+  const wsStreamRecord = streamEmissions.find((rec) => rec.metadata && rec.metadata.deviceId === 'test-sensor-ws-001');
+  assert(wsStreamRecord !== undefined, 'getTelemetryStream() receives valid socket telemetry emission');
+  assert(typeof wsStreamRecord.toObject === 'undefined', 'Socket stream emission is a plain object without .toObject()');
+  assert(!('$__' in wsStreamRecord), 'Socket stream emission does not contain Mongoose $__ property');
+  assert(!('_doc' in wsStreamRecord), 'Socket stream emission does not contain Mongoose _doc property');
+  assert(wsStreamRecord.temperature === 42.7, 'Socket stream emission matches payload temperature');
+
   // ════════════════════════════════════════════════════════════
   // TEST 5: Broadcasting to multiple connected clients
   // ════════════════════════════════════════════════════════════
@@ -233,6 +248,7 @@ async function runTests() {
 
   await wait(200);
 
+  streamSub.unsubscribe();
   io.close();
   await new Promise((resolve) => httpServer.close(resolve));
   await mongoose.disconnect();

@@ -9,12 +9,14 @@
  * 5. Read-only Observable encapsulation (tamper resistance).
  * 6. Clean subscription teardown via unsubscribe().
  * 7. Stream resilience against downstream subscriber errors.
+ * 8. Mongoose document normalization to plain JavaScript object.
  *
  * Execution:
  *   node tests/telemetryStream.test.js
  */
 
 const { publishTelemetry, getTelemetryStream } = require('../src/services/telemetryStream.service');
+const Telemetry = require('../src/models/telemetry.model');
 
 // ==========================================
 // Test Runner Harness
@@ -264,6 +266,44 @@ const runTests = async () => {
     interceptedSubscriberError !== null && interceptedSubscriberError.message === 'Simulated rogue subscriber error',
     'Faulty subscriber error was captured without breaking stream execution'
   );
+
+  // ----------------------------------------------------
+  // Test 8: Mongoose Document Normalization to Plain Object
+  // ----------------------------------------------------
+  console.log('\nTest 8: Mongoose Document Normalization to Plain Object');
+  const receivedTest8 = [];
+  const sub8 = telemetry$.subscribe((rec) => receivedTest8.push(rec));
+
+  const mongooseDoc = new Telemetry({
+    metadata: {
+      deviceId: 'sensor-mongoose-01',
+      deviceType: 'vibration-probe',
+      location: 'Foundry-Floor-B'
+    },
+    temperature: 72.5,
+    pressure: 101.4,
+    vibration: 0.035,
+    timestamp: new Date()
+  });
+
+  publishTelemetry(mongooseDoc);
+
+  assert(receivedTest8.length === 1, 'Subscriber received normalized Mongoose document emission');
+  const emitted = receivedTest8[0];
+  assert(typeof emitted === 'object' && emitted !== null, 'Emitted item is an object');
+  assert(typeof emitted.toObject === 'undefined', 'Emitted item is a plain object without .toObject() method');
+  assert(!('$__' in emitted), 'Emitted item does not contain internal Mongoose $__ property');
+  assert(!('_doc' in emitted), 'Emitted item does not contain internal Mongoose _doc property');
+
+  const spreadRecord = { ...emitted, temperature: 99 };
+  assert(spreadRecord.metadata && spreadRecord.metadata.deviceId === 'sensor-mongoose-01', 'Spreading emitted item preserves metadata');
+  assert(spreadRecord.pressure === 101.4, 'Spreading emitted item preserves pressure');
+  assert(spreadRecord.vibration === 0.035, 'Spreading emitted item preserves vibration');
+  assert(spreadRecord.timestamp !== undefined, 'Spreading emitted item preserves timestamp');
+  assert(spreadRecord._id !== undefined && String(spreadRecord._id) === String(mongooseDoc._id), 'Spreading emitted item preserves _id');
+  assert(spreadRecord.temperature === 99, 'Spreading emitted item allows overriding temperature field');
+
+  sub8.unsubscribe();
 
   // ----------------------------------------------------
   // Final Results

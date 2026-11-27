@@ -102,12 +102,17 @@ const validatePersistedRecord = (record) => {
  * @throws {Error} If savedRecord fails validation.
  */
 const publishTelemetry = (savedRecord) => {
+  // Normalize Mongoose documents to plain JavaScript objects to prevent prototype-loss during object spread
+  const normalizedRecord = savedRecord && typeof savedRecord.toObject === 'function'
+    ? savedRecord.toObject()
+    : savedRecord;
+
   // Validate schema and persistence contract
-  validatePersistedRecord(savedRecord);
+  validatePersistedRecord(normalizedRecord);
 
   // Safely emit to the private Subject.
   // Note: asObservable() consumers cannot call .error() or .complete() on _telemetrySubject$.
-  _telemetrySubject$.next(savedRecord);
+  _telemetrySubject$.next(normalizedRecord);
 };
 
 /**

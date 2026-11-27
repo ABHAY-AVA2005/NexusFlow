@@ -7,7 +7,9 @@
  * 3. Static metadata compilation.
  * 4. Reactive stream pipeline execution (source, math, filter, action).
  * 5. Branching topologies (fan-in merge, fan-out branching, multi-sink aggregation).
- * 6. Error handling (orphaned nodes, source incoming edges, non-finite values).
+ * 6. Error handling (orphaned nodes, source incoming edges).
+ * 7. Strict numeric validation guards (rejecting strings, nulls, non-finite).
+ * 8. End-to-end multi-stage pipeline with normalized Mongoose Telemetry documents.
  *
  * Execution:
  *   node tests/graphCompiler.test.js
@@ -20,6 +22,7 @@ const {
   compileGraph,
   compileGraphToStream,
 } = require('../src/compiler/graphCompiler');
+const Telemetry = require('../src/models/telemetry.model');
 
 // ==========================================
 // Test Runner Harness
@@ -399,6 +402,92 @@ const runTests = async () => {
     compileGraphToStream(testPipeline, of({ temperature: -12.5 }))
   );
   assert(validNegativeResult.temperature === -12.5, 'Accepts valid negative finite number (-12.5)');
+
+  // ----------------------------------------------------
+  // Test Group 8: End-to-End Mongoose Telemetry Pipeline
+  // ----------------------------------------------------
+  console.log('\n--- Test Group 8: End-to-End Mongoose Telemetry Pipeline ---');
+
+  const mongoosePipeline = {
+    id: 'mongoose-telemetry-pipeline',
+    nodes: [
+      { id: 'src-1', type: 'source', config: { field: 'temperature' } },
+      { id: 'math-1', type: 'math', config: { field: 'temperature', factor: 1.2 } },
+      { id: 'filter-1', type: 'filter', config: { field: 'pressure', minimum: 50, maximum: 150 } },
+      { id: 'action-1', type: 'action', config: { field: 'vibration', threshold: 0.05, message: 'Excessive vibration detected' } },
+    ],
+    edges: [
+      { source: 'src-1', target: 'math-1' },
+      { source: 'math-1', target: 'filter-1' },
+      { source: 'filter-1', target: 'action-1' },
+    ],
+  };
+
+  const mongooseDoc = new Telemetry({
+    metadata: {
+      deviceId: 'turbine-sensor-09',
+      deviceType: 'vibration-probe',
+      location: 'Turbine-Bay-C',
+    },
+    temperature: 80.0,
+    pressure: 101.3,
+    vibration: 0.08,
+    timestamp: new Date('2026-11-26T12:00:00.000Z'),
+  });
+
+  // Convert via .toObject() (as performed by publishTelemetry and controllers)
+  const normalizedDoc = typeof mongooseDoc.toObject === 'function' ? mongooseDoc.toObject() : mongooseDoc;
+
+  const pipelineResult = await lastValueFrom(
+    compileGraphToStream(mongoosePipeline, of(normalizedDoc))
+  );
+
+  assert(pipelineResult !== undefined, 'Pipeline executed successfully and produced result');
+  assert(pipelineResult.temperature === 96.0, 'Math operator scaled temperature correctly (80 * 1.2 = 96)');
+  assert(pipelineResult.pressure === 101.3, 'Preserved pressure field through math operator spread');
+  assert(pipelineResult.vibration === 0.08, 'Preserved vibration field through operators spread');
+  assert(pipelineResult.metadata && pipelineResult.metadata.deviceId === 'turbine-sensor-09', 'Preserved metadata.deviceId through spread');
+  assert(pipelineResult.metadata && pipelineResult.metadata.location === 'Turbine-Bay-C', 'Preserved metadata.location through spread');
+  assert(pipelineResult._id !== undefined && String(pipelineResult._id) === String(mongooseDoc._id), 'Preserved MongoDB _id through spread');
+  assert(pipelineResult.timestamp !== undefined, 'Preserved timestamp through spread');
+  assert(pipelineResult.alert === true, 'Action operator triggered alert (vibration 0.08 >= threshold 0.05)');
+  assert(pipelineResult.threshold === 0.05, 'Action operator attached threshold value');
+  assert(pipelineResult.message === 'Excessive vibration detected', 'Action operator attached alert message');
+
+  // Verify filter operator drops records with out-of-range pressure
+  const outOfRangeDoc = new Telemetry({
+    metadata: {
+      deviceId: 'turbine-sensor-10',
+      deviceType: 'vibration-probe',
+      location: 'Turbine-Bay-C',
+    },
+    temperature: 80.0,
+    pressure: 250.0, // outside [50, 150]
+    vibration: 0.08,
+    timestamp: new Date('2026-11-26T12:00:00.000Z'),
+  });
+  const filteredOutResult = await lastValueFrom(
+    compileGraphToStream(mongoosePipeline, of(outOfRangeDoc.toObject())).pipe(toArray())
+  );
+  assert(filteredOutResult.length === 0, 'Filter operator correctly drops out-of-range pressure record');
+
+  // Verify action operator handles values below threshold
+  const belowThresholdDoc = new Telemetry({
+    metadata: {
+      deviceId: 'turbine-sensor-11',
+      deviceType: 'vibration-probe',
+      location: 'Turbine-Bay-C',
+    },
+    temperature: 80.0,
+    pressure: 101.3,
+    vibration: 0.02, // < 0.05
+    timestamp: new Date('2026-11-26T12:00:00.000Z'),
+  });
+  const belowThresholdResult = await lastValueFrom(
+    compileGraphToStream(mongoosePipeline, of(belowThresholdDoc.toObject()))
+  );
+  assert(belowThresholdResult.alert === false, 'Action operator sets alert: false when vibration is below threshold');
+  assert(belowThresholdResult.threshold === undefined, 'Action operator omits threshold when alert is false');
 
   // ==========================================
   // Summary
