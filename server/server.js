@@ -13,6 +13,7 @@ const config = require('./src/config/env');
 const connectDB = require('./src/config/db');
 const healthRoutes = require('./src/routes/health.routes');
 const telemetryRoutes = require('./src/routes/telemetry.routes');
+const ruleRoutes = require('./src/routes/rule.routes');
 const { notFoundHandler, errorHandler } = require('./src/middleware/errorHandler');
 const { initializeSocket } = require('./src/services/socketManager');
 
@@ -54,6 +55,9 @@ app.use('/health', healthRoutes);
 
 // Telemetry API endpoint (POST /api/telemetry)
 app.use('/api/telemetry', telemetryRoutes);
+
+// Visual Rule CRUD and Lifecycle API endpoint (/api/rules)
+app.use('/api/rules', ruleRoutes);
 
 // ==========================================
 // Error Handling Middleware
