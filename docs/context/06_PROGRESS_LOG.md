@@ -593,3 +593,76 @@ The following tasks remain pending and will proceed once the compiler contract i
 - **Socket.IO Real-Time Ingestion**: Preserved completely without port or lifecycle conflicts.
 - **Central Telemetry Stream**: Central RxJS multicast stream remains untouched and ready for binding with the live rule registry in Milestone 2.
 - **Zero Premature Dependencies**: No new packages added to `package.json`. No premature CRUD routes, live subscriptions, or alert dispatchers introduced.
+
+---
+
+# Milestone: Phase 3 — Milestone 2, Task 1: Live Rule Registry
+**Date**: 27 November 2026
+**Author**: Kajal Singh — Backend & Database Engineer
+**Branch**: `kajal-backend`
+
+### 1. Work Completed
+
+1. **Live Rule Registry Service (`server/src/services/liveRuleRegistry.service.js`)**:
+   - Implemented in-memory registry (`_activeRules = new Map()`) storing active visual rule subscriptions keyed by `graphId`.
+   - Connected active rules to the central reactive RxJS telemetry stream (`getTelemetryStream()`).
+   - Integrated with existing visual graph compiler (`compileGraphToStream`, `validateGraph`, `topologicalSort`).
+   - **Pre-Graph Scope Filtering**:
+     - Evaluates `deviceId`, `deviceType`, and `location` using an RxJS `filter` operator before passing telemetry into the graph's source node.
+     - Supports `'all'` wildcard matching across any dimension, and exact string matching for scoped machines/zones.
+     - Non-matching telemetry records are dropped upstream, preventing unnecessary graph computations.
+   - **Duplicate Subscription Prevention**:
+     - Rejects redundant activations of already-active `graphId` instances with an explicit error before any subscription or state change occurs.
+   - **Subscription Lifecycle & Teardown**:
+     - `activateRule(rule, options)`: Compiles graph, binds scoped telemetry observable, registers active entry, and returns activation summary. Supports optional lifecycle hooks (`onResult`, `onAlert`, `onError`).
+     - `deactivateRule(graphId)`: Unsubscribes the RxJS subscription to detach from the central stream and removes the rule entry from the map.
+     - `isRuleActive(graphId)`, `getActiveRule(graphId)`, `getActiveRules()`, `getActiveRuleIds()`, `getActiveRuleCount()`, and `clearRegistry()`.
+   - **Error Isolation, Identity-Safe De-Registration & Resilience**:
+     - Pre-validates graph topology and cycle detection before registry mutation; invalid rules never corrupt registry state.
+     - Downstream consumer callback errors are isolated via `try...catch` blocks within the `next` handler.
+     - Stream errors are captured by the observer's `error` callback without bubbling to the central `_telemetrySubject$` bus.
+     - An error or exception in one rule cannot terminate or stall peer rule subscriptions.
+     - **Identity-Safe Error Cleanup**: When a rule subscription encounters a fatal pipeline error, its registry entry is automatically removed strictly by checking `currentEntry.subscription === subscription`. This prevents stale zombie registrations while guaranteeing that a newly registered replacement subscription under the same `graphId` is never deleted.
+     - **TDZ Protection**: Declares `let subscription = null` prior to `.subscribe()` to eliminate Temporal Dead Zone reference errors during synchronous error emissions.
+     - **Subscription Liveness Query Guard**: `isRuleActive`, `getActiveRuleCount`, `getActiveRuleIds`, and `getActiveRules` check both `entry.status !== 'error'` and `!entry.subscription.closed`, safely pruning any closed subscriptions on read.
+   - **Mongoose Document & Prototype Safety**:
+     - Normalizes incoming Mongoose `Rule` models via `.toObject()` on root documents, subdocument arrays (`nodes`, `edges`), and `scope`.
+
+2. **Automated Unit & Integration Test Suite (`server/tests/liveRuleRegistry.test.js`)**:
+   - Developed comprehensive test suite containing 87 assertions across 17 test scenarios:
+     - Test 1: Activating a valid rule and verifying registry state and summary (10 assertions).
+     - Test 2: Receiving telemetry through active rule, scaling temperature with math node, evaluating action threshold, triggering `onAlert` (13 assertions).
+     - Test 3: DeviceId scope matching and filtering (2 assertions).
+     - Test 4: DeviceType scope matching and filtering (2 assertions).
+     - Test 5: Location scope matching and filtering (2 assertions).
+     - Test 6: "all" scope wildcard behavior across disparate records (1 assertion).
+     - Test 7: Non-matching telemetry rejection across multiple dimensions (2 assertions).
+     - Test 8: Duplicate activation prevention without duplicate subscriptions (4 assertions).
+     - Test 9: Deactivation stops rule execution and cleans up map (6 assertions).
+     - Test 10: Reactivation after deactivation restores telemetry processing (4 assertions).
+     - Test 11: Error isolation across rules and central stream survival (4 assertions).
+     - Test 12: Rejection of invalid graphs (null, missing graphId, bad types, cycles, orphans) (6 assertions).
+     - Test 13: Subscription cleanup and `clearRegistry` teardown (5 assertions).
+     - Test 14: Compatibility with Mongoose Rule document normalization (3 assertions).
+     - Test 15: Pipeline error lifecycle, identity-safe de-registration, and clean reactivation (A–H) (13 assertions).
+     - Test 16: Throwing `onError` callback isolation protecting registry and peer rules (I) (3 assertions).
+     - Test 17: Identity-safe cleanup prevention against newer subscription (J) (7 assertions).
+
+### 2. Comprehensive Verification Results
+
+| Test Suite | Command | Scope | Assertions | Status |
+| :--- | :--- | :--- | :---: | :---: |
+| **Live Rule Registry** | `node tests/liveRuleRegistry.test.js` | Subscription lifecycle, scoping, duplicate guards, identity-safe cleanup, reactivation | 87 | **PASSED** |
+| **Rule Model & Persistence** | `node tests/ruleModel.test.js` | Schema validation, enums, edges, cycles, unique index, scoping, timestamps, deactivation | 33 | **PASSED** |
+| **Graph Compiler & Operators** | `node tests/graphCompiler.test.js` | Validation, topological sort, cycle detection, fan-in/fan-out, numeric guards, E2E pipeline | 60 | **PASSED** |
+| **Reactive Telemetry Stream** | `node tests/telemetryStream.test.js` | Subject encapsulation, FIFO order, guards, multicasting, teardown, resilience, normalization | 31 | **PASSED** |
+| **REST Telemetry & RxJS** | `node tests/telemetry.test.js` | HTTP ingestion, Mongoose persistence, stream emission, plain object spread verification | 34 | **PASSED** |
+| **Socket.IO Integration** | `node tests/socket.test.js` | WebSocket lifecycle, validation, ack, multi-client broadcast, DB persistence, stream check | 29 | **PASSED** |
+| **Total Assertions** | | | **274** | **100% Pass (0 Failures)** |
+| **Code Style & Whitespace** | `git diff --check` | Working tree whitespace and formatting audit | 0 warnings | **CLEAN** |
+
+### 3. Preserved Architecture & Strict Boundaries
+- **Express 5 & Mongoose 9**: Zero modifications to framework configuration, middleware, or database models.
+- **Central Telemetry Stream**: `telemetryStream.service.js` remains unmodified; `liveRuleRegistry.service.js` consumes `getTelemetryStream()` cleanly as a read-only Observable.
+- **No Premature Additions**: No CRUD routes, alert dispatchers, startup hydration, or new WebSocket servers introduced.
+- **Zero New Dependencies**: `package.json` untouched.
